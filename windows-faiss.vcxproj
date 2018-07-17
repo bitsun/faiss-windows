@@ -146,19 +146,27 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AuxIndexStructures.h" />
+    <ClInclude Include="Clustering.h" />
     <ClInclude Include="FaissAssert.h" />
     <ClInclude Include="FaissException.h" />
+    <ClInclude Include="hamming.h" />
     <ClInclude Include="Heap.h" />
     <ClInclude Include="Index.h" />
     <ClInclude Include="IndexFlat.h" />
+    <ClInclude Include="IndexIVF.h" />
+    <ClInclude Include="IndexIVFFlat.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AuxIndexStructures.cpp" />
+    <ClCompile Include="Clustering.cpp" />
     <ClCompile Include="FaissException.cpp" />
+    <ClCompile Include="hamming.cpp" />
     <ClCompile Include="Heap.cpp" />
     <ClCompile Include="Index.cpp" />
     <ClCompile Include="IndexFlat.cpp" />
+    <ClCompile Include="IndexIVF.cpp" />
+    <ClCompile Include="IndexIVFFlat.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
