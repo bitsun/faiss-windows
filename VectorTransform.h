@@ -274,7 +274,7 @@ struct IndexPreTransform: Index {
 
     /** removes IDs from the index. Not supported by all indexes.
      */
-    long remove_ids(const IDSelector& sel) override;
+    int64_t remove_ids(const IDSelector& sel) override;
 
     void search(
         idx_t n,

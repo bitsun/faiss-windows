@@ -18,12 +18,11 @@
 #include <cstdio>
 
 #include <algorithm>
-
+#include <vector>
 #include "FaissAssert.h"
 #include "VectorTransform.h"
 #include "IndexFlat.h"
 #include "utils.h"
-
 
 extern "C" {
 
@@ -50,7 +49,7 @@ void pq_estimators_from_tables_Mmul4 (int M, const CT * codes,
                                       size_t ksub,
                                       size_t k,
                                       float * heap_dis,
-                                      long * heap_ids)
+                                      int64_t * heap_ids)
 {
 
     for (size_t j = 0; j < ncodes; j++) {
@@ -81,7 +80,7 @@ void pq_estimators_from_tables_M4 (const CT * codes,
                                    size_t ksub,
                                    size_t k,
                                    float * heap_dis,
-                                   long * heap_ids)
+                                   int64_t * heap_ids)
 {
 
     for (size_t j = 0; j < ncodes; j++) {
@@ -107,7 +106,7 @@ static inline void pq_estimators_from_tables (const ProductQuantizer * pq,
                                               const float * dis_table,
                                               size_t k,
                                               float * heap_dis,
-                                              long * heap_ids)
+                                              int64_t * heap_ids)
 {
 
     if (pq->M == 4)  {
@@ -119,7 +118,7 @@ static inline void pq_estimators_from_tables (const ProductQuantizer * pq,
     }
 
     if (pq->M % 4 == 0) {
-        pq_estimators_from_tables_Mmul4<CT, C> (pq->M, codes, ncodes,
+        pq_estimators_from_tables_Mmul4<CT, C> ((int)(pq->M), codes, ncodes,
                                             dis_table, pq->ksub, k,
                                             heap_dis, heap_ids);
         return;
@@ -311,13 +310,13 @@ void ProductQuantizer::train (int n, const float * x)
 
 void ProductQuantizer::compute_code (const float * x, uint8_t * code)  const
 {
-    float distances [ksub];
+	std::vector<float> distances (ksub);
     for (size_t m = 0; m < M; m++) {
         float mindis = 1e20;
         int idxm = -1;
         const float * xsub = x + m * dsub;
 
-        fvec_L2sqr_ny (distances, xsub, get_centroids(m, 0), dsub, ksub);
+        fvec_L2sqr_ny (distances.data(), xsub, get_centroids(m, 0), dsub, ksub);
 
         /* Find best centroid */
         size_t i;
@@ -512,7 +511,7 @@ static void pq_knn_search_with_tables (
         const float* dis_table = dis_tables + i * ksub * M;
 
         /* Compute distances and keep smallest values */
-        long * __restrict heap_ids = res->ids + i * k;
+		int64_t * __restrict heap_ids = res->ids + i * k;
         float * __restrict heap_dis = res->val + i * k;
 
         if (init_finalize_heap) {
@@ -552,11 +551,11 @@ void ProductQuantizer::search (const float * __restrict x,
 
     if (byte_per_idx == 1) {
 
-        pq_knn_search_with_tables<uint8_t, CMax<float, long> > (
+        pq_knn_search_with_tables<uint8_t, CMax<float, int64_t> > (
              this, dis_tables, codes, ncodes, res, init_finalize_heap);
 
     } else if (byte_per_idx == 2) {
-        pq_knn_search_with_tables<uint16_t, CMax<float, long> > (
+        pq_knn_search_with_tables<uint16_t, CMax<float, int64_t> > (
              this, dis_tables, codes, ncodes, res, init_finalize_heap);
 
     }
@@ -577,11 +576,11 @@ void ProductQuantizer::search_ip (const float * __restrict x,
 
     if (byte_per_idx == 1) {
 
-        pq_knn_search_with_tables<uint8_t, CMin<float, long> > (
+        pq_knn_search_with_tables<uint8_t, CMin<float, int64_t> > (
              this, dis_tables, codes, ncodes, res, init_finalize_heap);
 
     } else if (byte_per_idx == 2) {
-        pq_knn_search_with_tables<uint16_t, CMin<float, long> > (
+        pq_knn_search_with_tables<uint16_t, CMin<float, int64_t> > (
              this, dis_tables, codes, ncodes, res, init_finalize_heap);
     }
 
@@ -632,7 +631,7 @@ void ProductQuantizer::search_sdc (const uint8_t * qcodes,
     for (size_t i = 0; i < nq; i++) {
 
         /* Compute distances and keep smallest values */
-        long * heap_ids = res->ids + i * k;
+		int64_t * heap_ids = res->ids + i * k;
         float *  heap_dis = res->val + i * k;
         const uint8_t * qcode = qcodes + i * code_size;
 

@@ -39,9 +39,6 @@
 #include "cublas_v2.h"
 #include "cuda_runtime.h"
 
-#ifndef FINTEGER
-#define FINTEGER int
-#endif
 
 
 extern "C" {
@@ -53,14 +50,14 @@ void sgemm_ (const char *transa, const char *transb, FINTEGER *m, FINTEGER *
             FINTEGER *lda, const float *b, FINTEGER *
             ldb, float *beta, float *c, FINTEGER *ldc);
 
-///* Lapack functions, see http://www.netlib.org/clapack/old/single/sgeqrf.c */
-//
-//void sgeqrf_ (FINTEGER *m, FINTEGER *n, float *a, FINTEGER *lda,
-//                 float *tau, float *work, FINTEGER *lwork, FINTEGER *info);
-//
-//void sorgqr_ (FINTEGER *m, FINTEGER *n, FINTEGER *k, float *a,
-//            FINTEGER *lda, float *tau, float *work,
-//            FINTEGER *lwork, FINTEGER *info);
+/* Lapack functions, see http://www.netlib.org/clapack/old/single/sgeqrf.c */
+
+void sgeqrf_ (FINTEGER *m, FINTEGER *n, float *a, FINTEGER *lda,
+                 float *tau, float *work, FINTEGER *lwork, FINTEGER *info);
+
+void sorgqr_ (FINTEGER *m, FINTEGER *n, FINTEGER *k, float *a,
+            FINTEGER *lda, float *tau, float *work,
+            FINTEGER *lwork, FINTEGER *info);
 
 
 }
@@ -1433,26 +1430,26 @@ void inner_product_to_L2sqr (float * __restrict dis,
 }
 
 
-//void matrix_qr (int m, int n, float *a)
-//{
-//    FAISS_THROW_IF_NOT (m >= n);
-//    FINTEGER mi = m, ni = n, ki = mi < ni ? mi : ni;
-//    std::vector<float> tau (ki);
-//    FINTEGER lwork = -1, info;
-//    float work_size;
-//
-//    sgeqrf_ (&mi, &ni, a, &mi, tau.data(),
-//             &work_size, &lwork, &info);
-//    lwork = size_t(work_size);
-//    std::vector<float> work (lwork);
-//
-//    sgeqrf_ (&mi, &ni, a, &mi,
-//             tau.data(), work.data(), &lwork, &info);
-//
-//    sorgqr_ (&mi, &ni, &ki, a, &mi, tau.data(),
-//             work.data(), &lwork, &info);
-//
-//}
+void matrix_qr (int m, int n, float *a)
+{
+    FAISS_THROW_IF_NOT (m >= n);
+    FINTEGER mi = m, ni = n, ki = mi < ni ? mi : ni;
+    std::vector<float> tau (ki);
+    FINTEGER lwork = -1, info;
+    float work_size;
+
+    sgeqrf_ (&mi, &ni, a, &mi, tau.data(),
+             &work_size, &lwork, &info);
+    lwork = size_t(work_size);
+    std::vector<float> work (lwork);
+
+    sgeqrf_ (&mi, &ni, a, &mi,
+             tau.data(), work.data(), &lwork, &info);
+
+    sorgqr_ (&mi, &ni, &ki, a, &mi, tau.data(),
+             work.data(), &lwork, &info);
+
+}
 
 
 void pairwise_L2sqr (long d,

@@ -25,6 +25,9 @@
 #include <chrono>
 #include "Heap.h"
 
+#ifndef FINTEGER
+#define FINTEGER int
+#endif
 struct cublasContext;
 typedef cublasContext* cublasHandle_t;
 namespace faiss {
@@ -338,7 +341,7 @@ int km_update_centroids (
 /** compute the Q of the QR decomposition for m > n
  * @param a   size n * m: input matrix and output Q
  */
-//void matrix_qr (int m, int n, float *a);
+void matrix_qr (int m, int n, float *a);
 
 /** distances are supposed to be sorted. Sorts indices with same distance*/
 void ranklist_handle_ties (int k, long *idx, const float *dis);

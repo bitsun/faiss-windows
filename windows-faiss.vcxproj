@@ -155,7 +155,11 @@
     <ClInclude Include="IndexFlat.h" />
     <ClInclude Include="IndexIVF.h" />
     <ClInclude Include="IndexIVFFlat.h" />
+    <ClInclude Include="IndexPQ.h" />
+    <ClInclude Include="PolysemousTraining.h" />
+    <ClInclude Include="ProductQuantizer.h" />
     <ClInclude Include="utils.h" />
+    <ClInclude Include="VectorTransform.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AuxIndexStructures.cpp" />
@@ -167,8 +171,12 @@
     <ClCompile Include="IndexFlat.cpp" />
     <ClCompile Include="IndexIVF.cpp" />
     <ClCompile Include="IndexIVFFlat.cpp" />
+    <ClCompile Include="IndexPQ.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="PolysemousTraining.cpp" />
+    <ClCompile Include="ProductQuantizer.cpp" />
     <ClCompile Include="utils.cpp" />
+    <ClCompile Include="VectorTransform.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -86,7 +86,7 @@ struct IndexPQ: Index {
     /** remove some ids. NB that Because of the structure of the
      * indexing structre, the semantics of this operation are
      * different from the usual ones: the new ids are shifted */
-    long remove_ids(const IDSelector& sel) override;
+    int64_t remove_ids(const IDSelector& sel) override;
 
     // just encode the sign of the components, instead of using the PQ encoder
     // used only for the queries

@@ -31,7 +31,7 @@ int main(int argc,char** argv) {
     rng.seed(ss);
     // initialize a uniform distribution between 0 and 1
     std::uniform_real_distribution<float> unif(0, 1);
-    int d = 512;                            // dimension
+    int d = 121;                            // dimension
     int nb = atoi(argv[1]);//1024*1024;                       // database size
     int nq = atoi(argv[2]);//1024;                        // nb of queries
 	std::cout<<"generating "<<nb<< " random vectors"<<nq<<" query vectors"<<std::endl;

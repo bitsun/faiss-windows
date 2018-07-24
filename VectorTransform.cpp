@@ -953,8 +953,8 @@ void IndexPreTransform::reset () {
     ntotal = 0;
 }
 
-long IndexPreTransform::remove_ids (const IDSelector & sel) {
-    long nremove = index->remove_ids (sel);
+int64_t IndexPreTransform::remove_ids (const IDSelector & sel) {
+    int64_t nremove = index->remove_ids (sel);
     ntotal = index->ntotal;
     return nremove;
 }
