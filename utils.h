@@ -21,10 +21,12 @@
 #include <stdint.h>
 // for the random data struct
 #include <cstdlib>
-
+#include <random>
+#include <chrono>
 #include "Heap.h"
 
-
+struct cublasContext;
+typedef cublasContext* cublasHandle_t;
 namespace faiss {
 
 
@@ -47,18 +49,22 @@ size_t get_mem_usage_kb ();
 /// random generator that can be used in multithreaded contexts
 struct RandomGenerator {
 
-#ifdef __linux__
-    char rand_state [8];
-    struct random_data rand_data;
-#elif __APPLE__
-    unsigned rand_state;
-#endif
-
+//#ifdef __linux__
+//    char rand_state [8];
+//    struct random_data rand_data;
+//#elif __APPLE__
+//    unsigned rand_state;
+//#endif
+	std::mt19937_64 rng;
+	std::seed_seq ss;
+	std::uniform_int_distribution<__int64> uni_long;
+	__int64 max_long;
+	int max_int;
     /// random 31-bit positive integer
     int rand_int ();
 
     /// random long < 2 ^ 62
-    long rand_long ();
+    __int64 rand_long ();
 
     /// generate random number between 0 and max-1
     int rand_int (int max);
@@ -218,6 +224,11 @@ void knn_L2sqr (
         size_t d, size_t nx, size_t ny,
         float_maxheap_array_t * res);
 
+void knn_L2sqr_cublas (cublasHandle_t handle,
+        const float * x,
+        const float * y,
+        size_t d, size_t nx, size_t ny,
+        float_maxheap_array_t * res);
 /** same as knn_L2sqr, but base_shift[bno] is subtracted to all
  * computed distances.
  *
@@ -327,7 +338,7 @@ int km_update_centroids (
 /** compute the Q of the QR decomposition for m > n
  * @param a   size n * m: input matrix and output Q
  */
-void matrix_qr (int m, int n, float *a);
+//void matrix_qr (int m, int n, float *a);
 
 /** distances are supposed to be sorted. Sorts indices with same distance*/
 void ranklist_handle_ties (int k, long *idx, const float *dis);
@@ -389,6 +400,52 @@ const float *fvecs_maybe_subsample (
        size_t d, size_t *n, size_t nmax, const float *x,
        bool verbose = false, long seed = 1234);
 
+/**
+convert the source single precision floating numbers into half precision
+*/
+void float2half(const float* src,uint16_t* dst,size_t n);
+void half2float(const uint16_t* src,float* dst,size_t n);
+class Timer
+{
+public:
+    void start()
+    {
+        m_StartTime = std::chrono::system_clock::now();
+        m_bRunning = true;
+    }
+    
+    void stop()
+    {
+        m_EndTime = std::chrono::system_clock::now();
+        m_bRunning = false;
+    }
+    
+    double elapsedMilliseconds()
+    {
+        std::chrono::time_point<std::chrono::system_clock> endTime;
+        
+        if(m_bRunning)
+        {
+            endTime = std::chrono::system_clock::now();
+        }
+        else
+        {
+            endTime = m_EndTime;
+        }
+        
+        return std::chrono::duration_cast<std::chrono::milliseconds>(endTime - m_StartTime).count();
+    }
+    
+    double elapsedSeconds()
+    {
+        return elapsedMilliseconds() / 1000.0;
+    }
+
+private:
+    std::chrono::time_point<std::chrono::system_clock> m_StartTime;
+    std::chrono::time_point<std::chrono::system_clock> m_EndTime;
+    bool                                               m_bRunning = false;
+};
 } // namspace faiss
 
 

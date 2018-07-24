@@ -17,7 +17,8 @@
 #include "FaissAssert.h"
 
 #include "AuxIndexStructures.h"
-
+#include "cublas_v2.h"
+#include "cuda_runtime.h"
 namespace faiss {
 
 IndexFlat::IndexFlat (idx_t d, MetricType metric):
@@ -120,6 +121,143 @@ void IndexFlat::reconstruct (idx_t key, float * recons) const
     memcpy (recons, &(xb[key * d]), sizeof(*recons) * d);
 }
 
+GPU_IndexFlatL2::GPU_IndexFlatL2(idx_t d):IndexFlat(d,METRIC_L2) {
+	cublasStatus_t stat;
+	stat=cublasCreate(&handle);
+}
+
+GPU_IndexFlatL2::GPU_IndexFlatL2() {
+	cublasStatus_t stat;
+	stat=cublasCreate(&handle);
+}
+
+GPU_IndexFlatL2::~GPU_IndexFlatL2() {
+	cublasDestroy(handle);
+}
+
+void GPU_IndexFlatL2::search(idx_t n, const float* x, idx_t k, float* distances, idx_t* labels)const {
+	if (metric_type == METRIC_INNER_PRODUCT) {
+        float_minheap_array_t res = {
+            size_t(n), size_t(k), labels, distances};
+        knn_inner_product (x, xb.data(), d, n, ntotal, &res);
+    } else if (metric_type == METRIC_L2) {
+        float_maxheap_array_t res = {
+            size_t(n), size_t(k), labels, distances};
+        knn_L2sqr_cublas (handle,x, xb.data(), d, n, ntotal, &res);
+    }
+}
+
+/***************************************************
+ * GPU_IndexFlatFP16L2
+ ***************************************************/
+
+GPU_IndexFlatFP16L2::GPU_IndexFlatFP16L2(idx_t d):Index(d,METRIC_L2) {
+	cublasStatus_t stat;
+	stat=cublasCreate(&handle);
+}
+
+GPU_IndexFlatFP16L2::~GPU_IndexFlatFP16L2() {
+	cublasDestroy(handle);
+}
+
+void GPU_IndexFlatFP16L2::add(idx_t n, const float* x) {
+	//convert the vectors into half precision format
+	std::vector<uint16_t,aligned_allocator<uint16_t>> pNewdbVectors(n*d);
+	//uint16_t* pNewdbVectors = (uint16_t*)(_aligned_malloc(n*d * sizeof(uint16_t), 32));
+	float2half(x,pNewdbVectors.data(),n*d);
+	xb.insert(xb.end(), pNewdbVectors.begin(), pNewdbVectors.begin()+n*d);
+	//compute xnorm
+	std::vector<float> ynorms_new(n);
+	fvec_norms_L2sqr (ynorms_new.data(), x, d, n);
+	yL2norms.insert(yL2norms.end(),ynorms_new.begin(),ynorms_new.end());
+    ntotal += n;
+	//_aligned_free(pNewdbVectors);
+}
+
+void GPU_IndexFlatFP16L2::search(idx_t nx, const float* x, idx_t k, float* distances, idx_t* labels) const {
+	float_maxheap_array_t res = {size_t(nx), size_t(k), labels, distances};
+	res.heapify ();
+	idx_t ny = xb.size()/d;
+    // BLAS does not like empty matrices
+    if (nx == 0 || ny == 0) return;
+
+    /* block sizes */
+    const size_t bs_x = 1024, bs_y = 1024*64;
+    // const size_t bs_x = 16, bs_y = 16;
+    std::vector<float> ip_block(bs_x * bs_y);
+    std::vector<float> x_norms(nx);
+    fvec_norms_L2sqr (x_norms.data(), x, d, nx);
+
+    //std::vector<float> y_norms(ny);
+    //fvec_norms_L2sqr (y_norms.data(), y, d, ny);
+	//if we assume that gpu memory is not big enough, then we should not copy 
+	//all the database vectors into gpu once for all,instead we copy them, blokc by block
+	cudaError_t cudastat;
+	float* d_x;  //the address to the gpu memory storing the current block of the database vectors
+	float* d_y;  //the address to the gpu memory storing the current block of the query vectors
+	float* d_ip_block;  //the address to the gpu memory storing the inner product result
+	//allocate gpu memory for result
+	cudastat = cudaMalloc((void**)&d_ip_block,bs_x*bs_y*sizeof(float));
+	std::vector<float,aligned_allocator<float>> y(bs_y*d);
+    for (size_t i0 = 0; i0 < nx; i0 += bs_x) {
+        size_t i1 = i0 + bs_x;
+        if(i1 > nx) i1 = nx;
+		//copy the current block database vectors into gpu
+		cudastat= cudaMalloc((void**)&d_x,(i1-i0)*d*sizeof(float));
+		cudastat= cudaMemcpy(d_x,x + i0 * d,sizeof(float)*(i1-i0)*d,cudaMemcpyHostToDevice); 
+        for (size_t j0 = 0; j0 < ny; j0 += bs_y) {
+            size_t j1 = j0 + bs_y;
+            if (j1 > ny) j1 = ny;
+			half2float(xb.data()+j0*d,y.data(),(j1-j0)*d);
+			cudastat= cudaMalloc((void**)&d_y,(j1-j0)*d*sizeof(float));
+			cudastat= cudaMemcpy(d_y,y.data(),sizeof(float)*(j1-j0)*d,cudaMemcpyHostToDevice); 
+			
+            /* compute the actual dot products */
+            {
+                float one=1.0f,zero=0.0f;
+                int nyi = j1 - j0, nxi = i1 - i0, di = d;
+                cublasStatus_t status = cublasSgemm (handle,CUBLAS_OP_T, CUBLAS_OP_N, nyi, nxi, di, &one,
+                        d_y, di,d_x, di, &zero,d_ip_block, nyi);
+				if (status != CUBLAS_STATUS_SUCCESS) {
+					throw std::exception("cublas operation failed");
+				}
+				//copy result back from gpu
+				cudaMemcpy(ip_block.data(),d_ip_block,sizeof(float)*(j1-j0)*(i1-i0),cudaMemcpyDeviceToHost);
+            }
+			cudaFree(d_y);
+            /* collect minima */
+#pragma omp parallel for
+            for (size_t i = i0; i < i1; i++) {
+                float * __restrict simi = res.get_val(i);
+                long * __restrict idxi = res.get_ids (i);
+                const float *ip_line = ip_block.data() + (i - i0) * (j1 - j0);
+
+                for (size_t j = j0; j < j1; j++) {
+                    float ip = *ip_line++;
+                    float dis = x_norms[i] + yL2norms[j] - 2 * ip;
+
+                    //dis = corr (dis, i, j);
+
+                    if (dis < simi[0]) {
+                        maxheap_pop (k, simi, idxi);
+                        maxheap_push (k, simi, idxi, dis, j);
+                    }
+                }
+            }
+        }
+		cudaFree(d_x);
+    }
+	cudaFree(d_ip_block);
+	//cudaFree(one);
+	//cudaFree(zero);
+    res.reorder ();
+}
+
+void GPU_IndexFlatFP16L2::reset() {
+	xb.clear();
+	yL2norms.clear();
+	ntotal=0;
+}
 /***************************************************
  * IndexFlatL2BaseShift
  ***************************************************/
@@ -370,7 +508,7 @@ void IndexFlat1D::search (
                 I[wp] = perm[i1];
                 i1++;
             } else {
-                D[wp] = 1.0 / 0.0;
+                D[wp] = std::numeric_limits<double>::infinity();//1.0 / 0.0;
                 I[wp] = -1;
             }
             wp++;
@@ -385,7 +523,7 @@ void IndexFlat1D::search (
                 I[wp] = perm[i0];
                 i0--;
             } else {
-                D[wp] = 1.0 / 0.0;
+                D[wp] = std::numeric_limits<double>::infinity();//1.0 / 0.0;
                 I[wp] = -1;
             }
             wp++;

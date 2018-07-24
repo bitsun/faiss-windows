@@ -8,7 +8,9 @@
 
 // Copyright 2004-present Facebook. All Rights Reserved
 // -*- c++ -*-
-
+#ifdef _MSC_VER
+#define __attribute__(A)
+#endif
 #include "utils.h"
 
 #include <cstdio>
@@ -18,10 +20,13 @@
 
 #include <immintrin.h>
 
-
+#ifdef _MSC_VER
+#include <time.h>
+#else
 #include <sys/time.h>
+#endif
 #include <sys/types.h>
-#include <unistd.h>
+//#include <unistd.h>
 
 #include <omp.h>
 
@@ -31,11 +36,11 @@
 
 #include "AuxIndexStructures.h"
 #include "FaissAssert.h"
-
-
+#include "cublas_v2.h"
+#include "cuda_runtime.h"
 
 #ifndef FINTEGER
-#define FINTEGER long
+#define FINTEGER int
 #endif
 
 
@@ -43,19 +48,19 @@ extern "C" {
 
 /* declare BLAS functions, see http://www.netlib.org/clapack/cblas/ */
 
-int sgemm_ (const char *transa, const char *transb, FINTEGER *m, FINTEGER *
+void sgemm_ (const char *transa, const char *transb, FINTEGER *m, FINTEGER *
             n, FINTEGER *k, const float *alpha, const float *a,
             FINTEGER *lda, const float *b, FINTEGER *
             ldb, float *beta, float *c, FINTEGER *ldc);
 
-/* Lapack functions, see http://www.netlib.org/clapack/old/single/sgeqrf.c */
-
-int sgeqrf_ (FINTEGER *m, FINTEGER *n, float *a, FINTEGER *lda,
-                 float *tau, float *work, FINTEGER *lwork, FINTEGER *info);
-
-int sorgqr_(FINTEGER *m, FINTEGER *n, FINTEGER *k, float *a,
-            FINTEGER *lda, float *tau, float *work,
-            FINTEGER *lwork, FINTEGER *info);
+///* Lapack functions, see http://www.netlib.org/clapack/old/single/sgeqrf.c */
+//
+//void sgeqrf_ (FINTEGER *m, FINTEGER *n, float *a, FINTEGER *lda,
+//                 float *tau, float *work, FINTEGER *lwork, FINTEGER *info);
+//
+//void sorgqr_ (FINTEGER *m, FINTEGER *n, FINTEGER *k, float *a,
+//            FINTEGER *lda, float *tau, float *work,
+//            FINTEGER *lwork, FINTEGER *info);
 
 
 }
@@ -72,9 +77,14 @@ namespace faiss {
 #endif
 
 double getmillisecs () {
+#ifdef _MSC_VER
+	clock_t t = clock();
+	return ((double)t*1000.0/CLOCKS_PER_SEC);
+#else
     struct timeval tv;
     gettimeofday (&tv, nullptr);
     return tv.tv_sec * 1e3 + tv.tv_usec * 1e-3;
+#endif
 }
 
 
@@ -201,7 +211,18 @@ long RandomGenerator::rand_long ()
 
 
 #endif
+RandomGenerator::RandomGenerator(long nSeed):ss({nSeed}),uni_long(0,0x7FFFFFFFFFFFFFFF) {
+	max_long = 0x7FFFFFFFFFFFFFFF;
+	max_int = 0x7FFFFFFF;
+}
 
+int RandomGenerator::rand_int() {
+	return uni_long(rng) % max_int;
+}
+
+__int64 RandomGenerator::rand_long() {
+	return uni_long(rng);
+}
 int RandomGenerator::rand_int (int max)
 {   // this suffers form non-uniform probabilities when max is not a
     // power of 2, but if RAND_MAX >> max the bias is limited.
@@ -215,7 +236,7 @@ float RandomGenerator::rand_float ()
 
 double RandomGenerator::rand_double ()
 {
-    return rand_long() / double(1L << 62);
+    return rand_long() / double(max_long);
 }
 
 
@@ -580,8 +601,13 @@ float fvec_L2sqr (const float * x,
     while (d >= 4) {
         __m128 mx = _mm_loadu_ps (x); x += 4;
         __m128 my = _mm_loadu_ps (y); y += 4;
-        const __m128 a_m_b1 = mx - my;
-        msum1 += a_m_b1 * a_m_b1;
+#ifdef _MSC_VER
+		__m128 a_m_b1 = _mm_sub_ps(mx,my);
+        msum1 = _mm_mul_ps(a_m_b1,a_m_b1);
+#else
+		const __m128 a_m_b1 = mx - my;
+		msum1 += a_m_b1 * a_m_b1;
+#endif		
         d -= 4;
     }
 
@@ -589,8 +615,13 @@ float fvec_L2sqr (const float * x,
         // add the last 1, 2 or 3 values
         __m128 mx = masked_read (d, x);
         __m128 my = masked_read (d, y);
+#ifdef _MSC_VER
+		__m128 a_m_b1 = _mm_sub_ps(mx,my);
+        msum1 = _mm_mul_ps(a_m_b1,a_m_b1);
+#else
         __m128 a_m_b1 = mx - my;
         msum1 += a_m_b1 * a_m_b1;
+#endif
     }
 
     msum1 = _mm_hadd_ps (msum1, msum1);
@@ -859,6 +890,87 @@ static void knn_inner_product_blas (
     res->reorder ();
 }
 
+void knn_L2sqr_cublas(cublasHandle_t handle,const float * x,
+	const float * y,
+	size_t d, size_t nx, size_t ny,
+	float_maxheap_array_t * res) {
+
+	res->heapify ();
+
+    // BLAS does not like empty matrices
+    if (nx == 0 || ny == 0) return;
+
+    size_t k = res->k;
+
+    /* block sizes */
+    const size_t bs_x = 1024, bs_y = 1024*64;
+    // const size_t bs_x = 16, bs_y = 16;
+    std::vector<float> ip_block(bs_x * bs_y);
+
+    std::vector<float> x_norms(nx);
+    fvec_norms_L2sqr (x_norms.data(), x, d, nx);
+
+    std::vector<float> y_norms(ny);
+    fvec_norms_L2sqr (y_norms.data(), y, d, ny);
+	//if we assume that gpu memory is not big enough, then we should not copy 
+	//all the database vectors into gpu once for all,instead we copy them, blokc by block
+	cudaError_t cudastat;
+	float* d_x;  //the address to the gpu memory storing the current block of the database vectors
+	float* d_y;  //the address to the gpu memory storing the current block of the query vectors
+	float* d_ip_block;  //the address to the gpu memory storing the inner product result
+	//allocate gpu memory for result
+	cudastat = cudaMalloc((void**)&d_ip_block,bs_x*bs_y*sizeof(float));
+    for (size_t i0 = 0; i0 < nx; i0 += bs_x) {
+        size_t i1 = i0 + bs_x;
+        if(i1 > nx) i1 = nx;
+		//copy the current block database vectors into gpu
+		cudastat= cudaMalloc((void**)&d_x,(i1-i0)*d*sizeof(float));
+		cudastat= cudaMemcpy(d_x,x + i0 * d,sizeof(float)*(i1-i0)*d,cudaMemcpyHostToDevice); 
+        for (size_t j0 = 0; j0 < ny; j0 += bs_y) {
+            size_t j1 = j0 + bs_y;
+            if (j1 > ny) j1 = ny;
+			cudastat= cudaMalloc((void**)&d_y,(j1-j0)*d*sizeof(float));
+			cudastat= cudaMemcpy(d_y,y + j0 * d,sizeof(float)*(j1-j0)*d,cudaMemcpyHostToDevice); 
+			
+            /* compute the actual dot products */
+            {
+                float one = 1, zero = 0;
+                FINTEGER nyi = j1 - j0, nxi = i1 - i0, di = d;
+                cublasStatus_t status = cublasSgemm (handle,CUBLAS_OP_T, CUBLAS_OP_N, nyi, nxi, di, &one,
+                        d_y, di,d_x, di, &zero,d_ip_block, nyi);
+				if (status != CUBLAS_STATUS_SUCCESS) {
+					throw std::exception("cublas operation failed");
+				}
+				//copy result back from gpu
+				cudaMemcpy(ip_block.data(),d_ip_block,sizeof(float)*(j1-j0)*(i1-i0),cudaMemcpyDeviceToHost);
+            }
+			cudaFree(d_y);
+
+            /* collect minima */
+#pragma omp parallel for
+            for (size_t i = i0; i < i1; i++) {
+                float * __restrict simi = res->get_val(i);
+                long * __restrict idxi = res->get_ids (i);
+                const float *ip_line = ip_block.data() + (i - i0) * (j1 - j0);
+
+                for (size_t j = j0; j < j1; j++) {
+                    float ip = *ip_line++;
+                    float dis = x_norms[i] + y_norms[j] - 2 * ip;
+
+                    //dis = corr (dis, i, j);
+
+                    if (dis < simi[0]) {
+                        maxheap_pop (k, simi, idxi);
+                        maxheap_push (k, simi, idxi, dis, j);
+                    }
+                }
+            }
+        }
+		cudaFree(d_x);
+    }
+	cudaFree(d_ip_block);
+    res->reorder ();
+}
 // distance correction is an operator that can be applied to transform
 // the distances
 template<class DistanceCorrection>
@@ -1319,26 +1431,26 @@ void inner_product_to_L2sqr (float * __restrict dis,
 }
 
 
-void matrix_qr (int m, int n, float *a)
-{
-    FAISS_THROW_IF_NOT (m >= n);
-    FINTEGER mi = m, ni = n, ki = mi < ni ? mi : ni;
-    std::vector<float> tau (ki);
-    FINTEGER lwork = -1, info;
-    float work_size;
-
-    sgeqrf_ (&mi, &ni, a, &mi, tau.data(),
-             &work_size, &lwork, &info);
-    lwork = size_t(work_size);
-    std::vector<float> work (lwork);
-
-    sgeqrf_ (&mi, &ni, a, &mi,
-             tau.data(), work.data(), &lwork, &info);
-
-    sorgqr_ (&mi, &ni, &ki, a, &mi, tau.data(),
-             work.data(), &lwork, &info);
-
-}
+//void matrix_qr (int m, int n, float *a)
+//{
+//    FAISS_THROW_IF_NOT (m >= n);
+//    FINTEGER mi = m, ni = n, ki = mi < ni ? mi : ni;
+//    std::vector<float> tau (ki);
+//    FINTEGER lwork = -1, info;
+//    float work_size;
+//
+//    sgeqrf_ (&mi, &ni, a, &mi, tau.data(),
+//             &work_size, &lwork, &info);
+//    lwork = size_t(work_size);
+//    std::vector<float> work (lwork);
+//
+//    sgeqrf_ (&mi, &ni, a, &mi,
+//             tau.data(), work.data(), &lwork, &info);
+//
+//    sorgqr_ (&mi, &ni, &ki, a, &mi, tau.data(),
+//             work.data(), &lwork, &info);
+//
+//}
 
 
 void pairwise_L2sqr (long d,
@@ -1707,7 +1819,7 @@ namespace {
         }
 
         // compute sub-ranges for each thread
-        SegmentS s1s[nt], s2s[nt], sws[nt];
+        std::vector<SegmentS> s1s(nt), s2s(nt), sws(nt);
         s2s[0].i0 = s2.i0;
         s2s[nt - 1].i1 = s2.i1;
 
@@ -1800,7 +1912,7 @@ void fvec_argsort_parallel (size_t n, const float *vals,
 
     ArgsortComparator comp = {vals};
 
-    SegmentS segs[nt];
+    std::vector<SegmentS> segs(nt);
 
     // independent sorts
 #pragma omp parallel for
@@ -1926,7 +2038,12 @@ static inline int fvec_madd_and_argmin_sse (size_t n, const float *a,
     while (n--) {
         __m128 vc4 = _mm_add_ps (*a4, _mm_mul_ps (bf4, *b4));
         *c4 = vc4;
+#ifdef _MSC_VER
+		//cast from __m128 to __m128i
+		__m128i mask = _mm_castps_si128(_mm_cmpgt_ps (vmin4, vc4));
+#else
         __m128i mask = (__m128i)_mm_cmpgt_ps (vmin4, vc4);
+#endif
         // imin4 = _mm_blendv_epi8 (imin4, idx4, mask); // slower!
 
         imin4 = _mm_or_si128 (_mm_and_si128 (mask, idx4),
@@ -1942,7 +2059,12 @@ static inline int fvec_madd_and_argmin_sse (size_t n, const float *a,
     {
         idx4 = _mm_shuffle_epi32 (imin4, 3 << 2 | 2);
         __m128 vc4 = _mm_shuffle_ps (vmin4, vmin4, 3 << 2 | 2);
+#ifdef _MSC_VER
+		//cast from __m128 to __m128i
+		__m128i mask = _mm_castps_si128(_mm_cmpgt_ps (vmin4, vc4));
+#else
         __m128i mask = (__m128i)_mm_cmpgt_ps (vmin4, vc4);
+#endif
         imin4 = _mm_or_si128 (_mm_and_si128 (mask, idx4),
                               _mm_andnot_si128 (mask, imin4));
         vmin4 = _mm_min_ps (vmin4, vc4);
@@ -1951,7 +2073,12 @@ static inline int fvec_madd_and_argmin_sse (size_t n, const float *a,
     {
         idx4 = _mm_shuffle_epi32 (imin4, 1);
         __m128 vc4 = _mm_shuffle_ps (vmin4, vmin4, 1);
+#ifdef _MSC_VER
+		//cast from __m128 to __m128i
+		__m128i mask = _mm_castps_si128(_mm_cmpgt_ps (vmin4, vc4));
+#else
         __m128i mask = (__m128i)_mm_cmpgt_ps (vmin4, vc4);
+#endif
         imin4 = _mm_or_si128 (_mm_and_si128 (mask, idx4),
                               _mm_andnot_si128 (mask, imin4));
         // vmin4 = _mm_min_ps (vmin4, vc4);
@@ -1995,5 +2122,59 @@ const float *fvecs_maybe_subsample (
     return x_subset;
 }
 
+void float2half(const float* src, uint16_t* dst, size_t n) {
+	const float* x=src;
+	uint16_t* y=dst;
+	int d= (int)n;
+	while(d>=4){
+		__m128 mx = _mm_loadu_ps (x); 
+		__m128i r=_mm_cvtps_ph(mx,0);
+		_mm_store_si128( (__m128i*) y, r);
+		x += 4;
+		y += 4;
+		d -= 4;
+	}
+	if(d>0){
+		__m128 mx= masked_read(d,x);
+		__m128i r=_mm_cvtps_ph(mx,0);
+		int k=0;
+		while (d >= 0) {
+			*y++ = r.m128i_u16[k++];
+			--d;
+		}
+	}
+}
 
+void half2float(const uint16_t* src, float* dst, size_t n) {
+	const uint16_t* x=src;
+	float* y=dst;
+	int d=(int)n;
+	while(d>=4){
+		__m128i* mx = (__m128i*) (x); 
+		__m128 r=_mm_cvtph_ps(*mx);
+		_mm_store_ps(y, r);
+		x += 4;
+		y += 4;
+		d -= 4;
+	}
+	if (d > 0) {
+		 assert (0 <= d && d < 4);
+		__attribute__((__aligned__(16))) uint16_t buf[8] = {0, 0, 0, 0,0,0,0,0};
+		switch (d) {
+			case 3:
+				buf[2] = x[2];
+			case 2:
+				buf[1] = x[1];
+			case 1:
+				buf[0] = x[0];
+		}
+		__m128i* mx = (__m128i*) (buf); 
+		__m128 r=_mm_cvtph_ps(*mx);
+		int k=0;
+		while (d >= 0) {
+			*y++ = r.m128_f32[k++];
+			--d;
+		}
+	}
+}
 } // namespace faiss

@@ -19,6 +19,9 @@
 ///
 /// Assertions
 ///
+#ifdef _MSC_VER
+#define __PRETTY_FUNCTION__ __FUNCTION__
+#endif
 
 #define FAISS_ASSERT(X)                                                 \
   do {                                                                  \

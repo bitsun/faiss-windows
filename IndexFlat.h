@@ -16,9 +16,42 @@
 
 #include "Index.h"
 
+struct cublasContext;
+typedef cublasContext* cublasHandle_t;
 
 namespace faiss {
+template <typename T>
+struct aligned_allocator {
+  using value_type = T;
 
+  aligned_allocator() = default;
+  template <class U>
+  aligned_allocator(const aligned_allocator<U>&) {}
+
+  T* allocate(std::size_t n) {
+    //std::cout << "allocate(" << n << ") = ";
+    if (n <= std::numeric_limits<std::size_t>::max() / sizeof(T)) {
+      if (auto ptr = _aligned_malloc(n * sizeof(T),32)/*std::malloc(n * sizeof(T))*/) {
+        return static_cast<T*>(ptr);
+      }
+    }
+    throw std::bad_alloc();
+  }
+  void deallocate(T* ptr, std::size_t n) {
+    //std::free(ptr);
+	_aligned_free(ptr);
+  }
+};
+
+template <typename T, typename U>
+inline bool operator == (const aligned_allocator<T>&, const aligned_allocator<U>&) {
+  return true;
+}
+
+template <typename T, typename U>
+inline bool operator != (const aligned_allocator<T>& a, const aligned_allocator<U>& b) {
+  return !(a == b);
+}
 /** Index that stores the full vectors and performs exhaustive search */
 struct IndexFlat: Index {
     /// database vectors, size ntotal * d
@@ -75,6 +108,63 @@ struct IndexFlatIP:IndexFlat {
     IndexFlatIP () {}
 };
 
+struct GPU_IndexFlatL2 :IndexFlat {
+	cublasHandle_t handle;
+	explicit GPU_IndexFlatL2 (idx_t d);
+    GPU_IndexFlatL2 ();
+	~GPU_IndexFlatL2();
+	void search(
+        idx_t n,
+        const float* x,
+        idx_t k,
+        float* distances,
+        idx_t* labels) const override;
+};
+
+/**
+flat index which stores the database vectors with fp16 half precision float point numbers,
+and internally uses gpu fp16 capabilities to do the knn search
+*/
+struct GPU_IndexFlatFP16L2 : Index{
+	cublasHandle_t handle;
+	/**
+	database vectors in fp half precision,in column major order
+	*/
+	std::vector<uint16_t,aligned_allocator<uint16_t>>  xb;
+	/**
+	L2 norms of database vectors
+	*/
+	std::vector<float> yL2norms;
+
+	explicit GPU_IndexFlatFP16L2 (idx_t d);
+	virtual ~GPU_IndexFlatFP16L2();
+	/**
+	add data into the index. note that that the data to be added are still stored in a single precision array
+	Therefore the caller of this function does not need to worry about the conversion efforts from
+	single precision to half precision
+	@param n the number of vectors to be added
+	@param x the data point to the array of vectors to be added
+	*/
+    void add(idx_t n, const float* x) override;
+
+	/**
+	search  the given vectors against this index. note that the data be searched are still stored in a single precision array
+	Therefore the caller of this function does not need to worry about the conversion efforts from
+	single precision to half precision
+	@param n the number of vectors to be searched
+	@param x the data point to the array of vectors to be searched
+	@param k number of nearest neighbor to be searched
+	@param distances the 
+	*/
+    void search(
+        idx_t n,
+        const float* x,
+        idx_t k,
+        float* distances,
+        idx_t* labels) const override;
+
+	virtual void reset();
+};
 
 struct IndexFlatL2:IndexFlat {
     explicit IndexFlatL2 (idx_t d): IndexFlat (d, METRIC_L2) {}
