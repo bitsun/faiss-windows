@@ -603,7 +603,8 @@ float fvec_L2sqr (const float * x,
         __m128 my = _mm_loadu_ps (y); y += 4;
 #ifdef _MSC_VER
 		__m128 a_m_b1 = _mm_sub_ps(mx,my);
-        msum1 = _mm_mul_ps(a_m_b1,a_m_b1);
+        __m128 tm = _mm_mul_ps(a_m_b1,a_m_b1);
+		msum1 = _mm_add_ps(tm, msum1);
 #else
 		const __m128 a_m_b1 = mx - my;
 		msum1 += a_m_b1 * a_m_b1;
@@ -617,7 +618,8 @@ float fvec_L2sqr (const float * x,
         __m128 my = masked_read (d, y);
 #ifdef _MSC_VER
 		__m128 a_m_b1 = _mm_sub_ps(mx,my);
-        msum1 = _mm_mul_ps(a_m_b1,a_m_b1);
+		__m128 tm = _mm_mul_ps(a_m_b1,a_m_b1);
+		msum1 = _mm_add_ps(tm, msum1);
 #else
         __m128 a_m_b1 = mx - my;
         msum1 += a_m_b1 * a_m_b1;
