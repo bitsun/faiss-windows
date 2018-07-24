@@ -30,7 +30,9 @@
 #include <stdint.h>
 
 #include "Heap.h"
-
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
 
 /* The Hamming distance type should be exportable to Lua Tensor, which
    excludes most unsigned type */
@@ -39,7 +41,11 @@ typedef int32_t hamdis_t;
 namespace faiss {
 
 inline int popcount64(uint64_t x) {
+#ifdef _MSC_VER
+	return __popcnt64(x);
+#else
     return __builtin_popcountl(x);
+#endif
 }
 
 
