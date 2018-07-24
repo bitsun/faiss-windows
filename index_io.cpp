@@ -10,13 +10,16 @@
 
 #include "index_io.h"
 
+#ifdef _MSC_VER
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+#endif 
+
 #include <cstdio>
 #include <cstdlib>
-
-#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 #include "FaissAssert.h"
 
@@ -30,7 +33,7 @@
 #include "MetaIndexes.h"
 #include "IndexScalarQuantizer.h"
 #include "IndexHNSW.h"
-#include "OnDiskInvertedLists.h"
+//#include "OnDiskInvertedLists.h"
 
 
 
@@ -95,7 +98,7 @@ static uint32_t fourcc (const char sx[4]) {
 #define READVECTOR(vec) {                       \
         long size;                            \
         READANDCHECK (&size, 1);                \
-        FAISS_THROW_IF_NOT (size >= 0 && size < (1L << 40));  \
+        FAISS_THROW_IF_NOT (size >= 0 && size < (((uint64_t)1 << 40)));  \
         (vec).resize (size);                    \
         READANDCHECK ((vec).data (), size);     \
     }
@@ -256,7 +259,7 @@ static void write_InvertedLists (const InvertedLists *ils, IOWriter *f) {
                 WRITEANDCHECK (ails->ids[i].data(), n);
             }
         }
-    } else if (const auto & od =
+    } /*else if (const auto & od =
                dynamic_cast<const OnDiskInvertedLists *>(ils)) {
         uint32_t h = fourcc ("ilod");
         WRITE1 (h);
@@ -276,7 +279,7 @@ static void write_InvertedLists (const InvertedLists *ils, IOWriter *f) {
         }
         WRITE1(od->totsize);
 
-    } else {
+    }*/ else {
         FAISS_THROW_MSG ("write_InvertedLists: unsupported invlist type");
     }
 }
@@ -579,7 +582,7 @@ InvertedLists *read_InvertedLists (IOReader *f, int io_flags) {
             }
         }
         return ails;
-    } else if (h == fourcc ("ilar") && (io_flags & IO_FLAG_MMAP)) {
+    }/* else if (h == fourcc ("ilar") && (io_flags & IO_FLAG_MMAP)) {
         auto impl = dynamic_cast<FileIOReader*>(f);
         FAISS_THROW_IF_NOT(NULL != impl);
         FILE *raw_f = impl->f;
@@ -635,7 +638,7 @@ InvertedLists *read_InvertedLists (IOReader *f, int io_flags) {
         READ1(od->totsize);
         od->do_mmap();
         return od;
-    } else {
+    }*/ else {
         FAISS_THROW_MSG ("read_InvertedLists: unsupported invlist type");
     }
 }

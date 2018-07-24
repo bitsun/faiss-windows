@@ -160,6 +160,8 @@
     <ClInclude Include="IndexLSH.h" />
     <ClInclude Include="IndexPQ.h" />
     <ClInclude Include="IndexScalarQuantizer.h" />
+    <ClInclude Include="index_io.h" />
+    <ClInclude Include="MetaIndexes.h" />
     <ClInclude Include="PolysemousTraining.h" />
     <ClInclude Include="ProductQuantizer.h" />
     <ClInclude Include="utils.h" />
@@ -180,7 +182,9 @@
     <ClCompile Include="IndexLSH.cpp" />
     <ClCompile Include="IndexPQ.cpp" />
     <ClCompile Include="IndexScalarQuantizer.cpp" />
+    <ClCompile Include="index_io.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="MetaIndexes.cpp" />
     <ClCompile Include="PolysemousTraining.cpp" />
     <ClCompile Include="ProductQuantizer.cpp" />
     <ClCompile Include="utils.cpp" />
