@@ -40,7 +40,7 @@ void HeapArray<C>::reorder ()
 
 template <typename C>
 void HeapArray<C>::addn (size_t nj, const T *vin, TI j0,
-                         size_t i0, long ni)
+                         size_t i0, int64_t ni)
 {
     if (ni == -1) ni = nh;
     assert (i0 >= 0 && i0 + ni <= nh);
@@ -63,7 +63,7 @@ void HeapArray<C>::addn (size_t nj, const T *vin, TI j0,
 template <typename C>
 void HeapArray<C>::addn_with_ids (
      size_t nj, const T *vin, const TI *id_in,
-     long id_stride, size_t i0, long ni)
+     long id_stride, size_t i0, int64_t ni)
 {
     if (id_in == nullptr) {
         addn (nj, vin, 0, i0, ni);
@@ -95,7 +95,7 @@ void HeapArray<C>::per_line_extrema (
 {
 #pragma omp parallel for
     for (size_t j = 0; j < nh; j++) {
-        long imin = -1;
+        int64_t imin = -1;
         typename C::T xval = C::Crev::neutral ();
         const typename C::T * x_ = val + j * k;
         for (size_t i = 0; i < k; i++)
@@ -120,10 +120,10 @@ void HeapArray<C>::per_line_extrema (
 
 // explicit instanciations
 
-template class HeapArray<CMin <float, long> >;
-template class HeapArray<CMax <float, long> >;
-template class HeapArray<CMin <int, long> >;
-template class HeapArray<CMax <int, long> >;
+template struct HeapArray<CMin <float, int64_t> >;
+template struct HeapArray<CMax <float, int64_t> >;
+template struct HeapArray<CMin <int, int64_t> >;
+template struct HeapArray<CMax <int, int64_t> >;
 
 
 

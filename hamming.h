@@ -42,7 +42,7 @@ namespace faiss {
 
 inline int popcount64(uint64_t x) {
 #ifdef _MSC_VER
-	return __popcnt64(x);
+	return (int)__popcnt64(x);
 #else
     return __builtin_popcountl(x);
 #endif

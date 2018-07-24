@@ -188,10 +188,10 @@ IDSelectorBatch::IDSelectorBatch (long n, const idx_t *indices)
     nbits += 5;
     // for n = 1M, nbits = 25 is optimal, see P56659518
 
-    mask = (1L << nbits) - 1;
-    bloom.resize (1UL << (nbits - 3), 0);
+    mask = (((int64_t)1) << nbits) - 1;
+    bloom.resize (((uint64_t)1) << (nbits - 3), 0);
     for (long i = 0; i < n; i++) {
-        long id = indices[i];
+        int64_t id = indices[i];
         set.insert(id);
         id &= mask;
         bloom[id >> 3] |= 1 << (id & 7);
@@ -200,7 +200,7 @@ IDSelectorBatch::IDSelectorBatch (long n, const idx_t *indices)
 
 bool IDSelectorBatch::is_member (idx_t i) const
 {
-    long im = i & mask;
+    idx_t im = i & mask;
     if(!(bloom[im>>3] & (1 << (im & 7)))) {
         return 0;
     }

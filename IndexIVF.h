@@ -93,7 +93,7 @@ struct InvertedLists {
 
     /// prepare the following lists (default does nothing)
     /// a list can be -1 hence the signed long
-    virtual void prefetch_lists (const long *list_nos, int nlist) const;
+    virtual void prefetch_lists (const int64_t *list_nos, int nlist) const;
 
     /*************************
      * writing functions */
@@ -175,7 +175,7 @@ struct IndexIVF: Index, Level1Quantizer {
 
     /// map for direct access to the elements. Enables reconstruct().
     bool maintain_direct_map;
-    std::vector <long> direct_map;
+    std::vector <int64_t> direct_map;
 
     /** The Inverted file takes a quantizer (an Index) on input,
      * which implements the function mapping a vector to a list
@@ -263,7 +263,7 @@ struct IndexIVF: Index, Level1Quantizer {
 
     /// Dataset manipulation functions
 
-    long remove_ids(const IDSelector& sel) override;
+	int64_t remove_ids(const IDSelector& sel) override;
 
     /** moves the entries from another dataset to self. On output,
      * other is empty. add_id is added to all moved ids (for

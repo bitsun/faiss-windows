@@ -186,7 +186,7 @@ void fvec_inner_products_by_idx (
         float * __restrict ip,
         const float * x,
         const float * y,
-        const long * __restrict ids,
+        const int64_t * __restrict ids,
         size_t d, size_t nx, size_t ny);
 
 /* same but for a subset in y indexed by idsy (ny vectors in total) */
@@ -194,7 +194,7 @@ void fvec_L2sqr_by_idx (
         float * __restrict dis,
         const float * x,
         const float * y,
-        const long * __restrict ids, /* ids of y vecs */
+        const int64_t * __restrict ids, /* ids of y vecs */
         size_t d, size_t nx, size_t ny);
 
 /***************************************************************************
@@ -331,7 +331,7 @@ void reflection (const float * u, float * x, size_t n, size_t d, size_t nu);
 int km_update_centroids (
         const float * x,
         float * centroids,
-        long * assign,
+		int64_t * assign,
         size_t d, size_t k, size_t n,
         size_t k_frozen);
 
@@ -433,7 +433,7 @@ public:
             endTime = m_EndTime;
         }
         
-        return std::chrono::duration_cast<std::chrono::milliseconds>(endTime - m_StartTime).count();
+        return (double)std::chrono::duration_cast<std::chrono::milliseconds>(endTime - m_StartTime).count();
     }
     
     double elapsedSeconds()

@@ -30,7 +30,7 @@ struct IndexIVFFlat: IndexIVF {
 
     /// same as add_with_ids, with precomputed coarse quantizer
     virtual void add_core (idx_t n, const float * x, const long *xids,
-                   const long *precomputed_idx);
+                   const int64_t *precomputed_idx);
 
     /// implemented for all IndexIVF* classes
     void add_with_ids(idx_t n, const float* x, const long* xids) override;

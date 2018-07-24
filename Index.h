@@ -59,7 +59,7 @@ struct RangeSearchResult;
  */
 struct Index {
 
-    typedef long idx_t;    ///< all indices are this type
+    typedef int64_t idx_t;    ///< all indices are this type
 
     int d;                 ///< vector dimension
     idx_t ntotal;          ///< total nb of indexed vectors
@@ -71,7 +71,7 @@ struct Index {
     /// type of metric this index uses for search
     MetricType metric_type;
 
-    explicit Index (idx_t d = 0, MetricType metric = METRIC_L2):
+    explicit Index (int d = 0, MetricType metric = METRIC_L2):
                     d(d),
                     ntotal(0),
                     verbose(false),
@@ -144,7 +144,7 @@ struct Index {
 
     /** removes IDs from the index. Not supported by all indexes
      */
-    virtual long remove_ids (const IDSelector & sel);
+    virtual int64_t remove_ids (const IDSelector & sel);
 
     /** Reconstruct a stored vector (or an approximation if lossy coding)
      *

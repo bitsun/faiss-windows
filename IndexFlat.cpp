@@ -21,7 +21,7 @@
 #include "cuda_runtime.h"
 namespace faiss {
 
-IndexFlat::IndexFlat (idx_t d, MetricType metric):
+IndexFlat::IndexFlat (int d, MetricType metric):
             Index(d, metric)
 {
 }
@@ -93,7 +93,7 @@ void IndexFlat::compute_distance_subset (
 
 }
 
-long IndexFlat::remove_ids (const IDSelector & sel)
+int64_t IndexFlat::remove_ids (const IDSelector & sel)
 {
     idx_t j = 0;
     for (idx_t i = 0; i < ntotal; i++) {
@@ -106,7 +106,7 @@ long IndexFlat::remove_ids (const IDSelector & sel)
             j++;
         }
     }
-    long nremove = ntotal - j;
+	int64_t nremove = ntotal - j;
     if (nremove > 0) {
         ntotal = j;
         xb.resize (ntotal * d);
@@ -121,7 +121,7 @@ void IndexFlat::reconstruct (idx_t key, float * recons) const
     memcpy (recons, &(xb[key * d]), sizeof(*recons) * d);
 }
 
-GPU_IndexFlatL2::GPU_IndexFlatL2(idx_t d):IndexFlat(d,METRIC_L2) {
+GPU_IndexFlatL2::GPU_IndexFlatL2(int d):IndexFlat(d,METRIC_L2) {
 	cublasStatus_t stat;
 	stat=cublasCreate(&handle);
 }
@@ -151,7 +151,7 @@ void GPU_IndexFlatL2::search(idx_t n, const float* x, idx_t k, float* distances,
  * GPU_IndexFlatFP16L2
  ***************************************************/
 
-GPU_IndexFlatFP16L2::GPU_IndexFlatFP16L2(idx_t d):Index(d,METRIC_L2) {
+GPU_IndexFlatFP16L2::GPU_IndexFlatFP16L2(int d):Index(d,METRIC_L2) {
 	cublasStatus_t stat;
 	stat=cublasCreate(&handle);
 }
@@ -229,7 +229,7 @@ void GPU_IndexFlatFP16L2::search(idx_t nx, const float* x, idx_t k, float* dista
 #pragma omp parallel for
             for (size_t i = i0; i < i1; i++) {
                 float * __restrict simi = res.get_val(i);
-                long * __restrict idxi = res.get_ids (i);
+				int64_t * __restrict idxi = res.get_ids (i);
                 const float *ip_line = ip_block.data() + (i - i0) * (j1 - j0);
 
                 for (size_t j = j0; j < j1; j++) {
@@ -262,7 +262,7 @@ void GPU_IndexFlatFP16L2::reset() {
  * IndexFlatL2BaseShift
  ***************************************************/
 
-IndexFlatL2BaseShift::IndexFlatL2BaseShift (idx_t d, size_t nshift, const float *shift):
+IndexFlatL2BaseShift::IndexFlatL2BaseShift (int d, size_t nshift, const float *shift):
     IndexFlatL2 (d), shift (nshift)
 {
     memcpy (this->shift.data(), shift, sizeof(float) * nshift);
@@ -508,7 +508,7 @@ void IndexFlat1D::search (
                 I[wp] = perm[i1];
                 i1++;
             } else {
-                D[wp] = std::numeric_limits<double>::infinity();//1.0 / 0.0;
+                D[wp] = std::numeric_limits<float>::infinity();//1.0 / 0.0;
                 I[wp] = -1;
             }
             wp++;
@@ -523,7 +523,7 @@ void IndexFlat1D::search (
                 I[wp] = perm[i0];
                 i0--;
             } else {
-                D[wp] = std::numeric_limits<double>::infinity();//1.0 / 0.0;
+                D[wp] = std::numeric_limits<float>::infinity();//1.0 / 0.0;
                 I[wp] = -1;
             }
             wp++;

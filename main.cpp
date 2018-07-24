@@ -90,7 +90,7 @@ int main(int argc,char** argv) {
 	faiss::Timer timer;
 	timer.start();
 	int k = 4;
-	std::vector<long> I(k * nq);
+	std::vector<int64_t> I(k * nq);
     std::vector<float> D(k * nq);
 	if(argc==5){
 		int nNumOfThreads = atoi(argv[4]);

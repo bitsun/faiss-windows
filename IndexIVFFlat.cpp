@@ -43,28 +43,28 @@ void IndexIVFFlat::add_with_ids (idx_t n, const float * x, const long *xids)
 }
 
 void IndexIVFFlat::add_core (idx_t n, const float * x, const long *xids,
-                             const long *precomputed_idx)
+                             const int64_t *precomputed_idx)
 
 {
     FAISS_THROW_IF_NOT (is_trained);
     assert (invlists);
     FAISS_THROW_IF_NOT_MSG (!(maintain_direct_map && xids),
                             "cannot have direct map and add with ids");
-    const long * idx;
-    ScopeDeleter<long> del;
+    const int64_t * idx;
+    ScopeDeleter<int64_t> del;
 
     if (precomputed_idx) {
         idx = precomputed_idx;
     } else {
-        long * idx0 = new long [n];
+		int64_t * idx0 = new int64_t[n];
         del.set (idx0);
         quantizer->assign (n, x, idx0);
         idx = idx0;
     }
     long n_add = 0;
     for (size_t i = 0; i < n; i++) {
-        long id = xids ? xids[i] : ntotal + i;
-        long list_no = idx [i];
+        int64_t id = xids ? xids[i] : ntotal + i;
+        int64_t list_no = idx [i];
 
         if (list_no < 0)
             continue;
@@ -89,7 +89,7 @@ namespace {
 void search_knn_inner_product (const IndexIVFFlat & ivf,
                                size_t nx,
                                const float * x,
-                               const long * keys,
+                               const int64_t * keys,
                                float_minheap_array_t * res,
                                bool store_pairs)
 {
@@ -101,14 +101,14 @@ void search_knn_inner_product (const IndexIVFFlat & ivf,
 #pragma omp parallel for reduction(+: nlistv, ndis)
     for (size_t i = 0; i < nx; i++) {
         const float * xi = x + i * d;
-        const long * keysi = keys + i * ivf.nprobe;
+        const int64_t * keysi = keys + i * ivf.nprobe;
         float * __restrict simi = res->get_val (i);
-        long * __restrict idxi = res->get_ids (i);
+        int64_t * __restrict idxi = res->get_ids (i);
         minheap_heapify (k, simi, idxi);
         size_t nscan = 0;
 
         for (size_t ik = 0; ik < ivf.nprobe; ik++) {
-            long key = keysi[ik];  /* select the list  */
+            int64_t key = keysi[ik];  /* select the list  */
             if (key < 0) {
                 // not enough centroids for multiprobe
                 continue;
@@ -130,7 +130,7 @@ void search_knn_inner_product (const IndexIVFFlat & ivf,
                 float ip = fvec_inner_product (xi, yj, d);
                 if (ip > simi[0]) {
                     minheap_pop (k, simi, idxi);
-                    long id = store_pairs ? (key << 32 | j) : ids[j];
+                    int64_t id = store_pairs ? (key << 32 | j) : ids[j];
                     minheap_push (k, simi, idxi, ip, id);
                 }
             }
@@ -150,7 +150,7 @@ void search_knn_inner_product (const IndexIVFFlat & ivf,
 void search_knn_L2sqr (const IndexIVFFlat &ivf,
                        size_t nx,
                        const float * x,
-                       const long * keys,
+                       const int64_t * keys,
                        float_maxheap_array_t * res,
                        bool store_pairs)
 {
@@ -160,15 +160,15 @@ void search_knn_L2sqr (const IndexIVFFlat &ivf,
 #pragma omp parallel for reduction(+: nlistv, ndis)
     for (size_t i = 0; i < nx; i++) {
         const float * xi = x + i * d;
-        const long * keysi = keys + i * ivf.nprobe;
+        const int64_t * keysi = keys + i * ivf.nprobe;
         float * __restrict disi = res->get_val (i);
-        long * __restrict idxi = res->get_ids (i);
+        int64_t * __restrict idxi = res->get_ids (i);
         maxheap_heapify (k, disi, idxi);
 
         size_t nscan = 0;
 
         for (size_t ik = 0; ik < ivf.nprobe; ik++) {
-            long key = keysi[ik];  /* select the list  */
+            int64_t key = keysi[ik];  /* select the list  */
             if (key < 0) {
                 // not enough centroids for multiprobe
                 continue;
@@ -190,7 +190,7 @@ void search_knn_L2sqr (const IndexIVFFlat &ivf,
                 float disij = fvec_L2sqr (xi, yj, d);
                 if (disij < disi[0]) {
                     maxheap_pop (k, disi, idxi);
-                    long id = store_pairs ? (key << 32 | j) : ids[j];
+                    int64_t id = store_pairs ? (key << 32 | j) : ids[j];
                     maxheap_push (k, disi, idxi, disij, id);
                 }
             }
@@ -241,13 +241,13 @@ void IndexIVFFlat::range_search (idx_t nx, const float *x, float radius,
 
         for (size_t i = 0; i < nx; i++) {
             const float * xi = x + i * d;
-            const long * keysi = keys + i * nprobe;
+            const int64_t * keysi = keys + i * nprobe;
 
             RangeSearchPartialResult::QueryResult & qres =
                 pres.new_result (i);
 
             for (size_t ik = 0; ik < nprobe; ik++) {
-                long key = keysi[ik];  /* select the list  */
+                int64_t key = keysi[ik];  /* select the list  */
                 if (key < 0 || key >= (long) nlist) {
                     fprintf (stderr, "Invalid key=%ld  at ik=%ld nlist=%ld\n",
                              key, ik, nlist);
@@ -293,12 +293,12 @@ void IndexIVFFlat::update_vectors (int n, idx_t *new_ids, const float *x)
         FAISS_THROW_IF_NOT_MSG (0 <= id && id < ntotal,
                                 "id to update out of range");
         { // remove old one
-            long dm = direct_map[id];
-            long ofs = dm & 0xffffffff;
-            long il = dm >> 32;
+            int64_t dm = direct_map[id];
+			int64_t ofs = dm & 0xffffffff;
+			int64_t il = dm >> 32;
             size_t l = invlists->list_size (il);
             if (ofs != l - 1) { // move l - 1 to ofs
-                long id2 = invlists->get_single_id (il, l - 1);
+                int64_t id2 = invlists->get_single_id (il, l - 1);
                 direct_map[id2] = (il << 32) | ofs;
                 invlists->update_entry (il, ofs, id2,
                                         invlists->get_single_code (il, l - 1));
@@ -306,9 +306,9 @@ void IndexIVFFlat::update_vectors (int n, idx_t *new_ids, const float *x)
             invlists->resize (il, l - 1);
         }
         { // insert new one
-            long il = assign[i];
+            idx_t il = assign[i];
             size_t l = invlists->list_size (il);
-            long dm = (il << 32) | l;
+            int64_t dm = (il << 32) | l;
             direct_map[id] = dm;
             invlists->add_entry (il, id, (const uint8_t*)(x + i * d));
         }

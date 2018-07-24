@@ -228,7 +228,7 @@ size_t match_hamming_thres (
         size_t n1,
         size_t n2,
         int ht,
-        long * idx,
+        int64_t * idx,
         hamdis_t * hams)
 {
     const size_t nwords = nbits / 64;
@@ -284,7 +284,7 @@ void hammings_knn_hc (
         const uint8_t * bs2_ = bs2;
         hamdis_t dis;
         hamdis_t * __restrict bh_val_ = ha->val + i * k;
-        long * __restrict bh_ids_ = ha->ids + i * k;
+		int64_t * __restrict bh_ids_ = ha->ids + i * k;
         size_t j;
         for (j = 0; j < n2; j++, bs2_+= bytes_per_code) {
             dis = hc.hamming (bs2_);
@@ -324,7 +324,7 @@ void hammings_knn_1 (
         hamdis_t dis;
         hamdis_t * bh_val_ = ha->val + i * k;
         hamdis_t bh_val_0 = bh_val_[0];
-        long * bh_ids_ = ha->ids + i * k;
+		int64_t * bh_ids_ = ha->ids + i * k;
         size_t j;
         for (j = 0; j < n2; j++, bs2_+= nwords) {
             dis = popcount64 (bs1_ ^ *bs2_);
@@ -580,7 +580,7 @@ size_t match_hamming_thres (
         size_t n2,
         hamdis_t ht,
         size_t ncodes,
-        long * idx,
+        int64_t * idx,
         hamdis_t * dis)
 {
     switch (ncodes) {
@@ -621,7 +621,7 @@ static void hamming_dis_inner_loop (
         size_t code_size,
         int k,
         hamdis_t * bh_val_,
-        long *     bh_ids_)
+		int64_t *     bh_ids_)
 {
 
     HammingComputer hc (ca, code_size);
@@ -656,7 +656,7 @@ void generalized_hammings_knn (
         const uint8_t *cb = b;
 
         hamdis_t * bh_val_ = ha->val + i * k;
-        long *     bh_ids_ = ha->ids + i * k;
+		int64_t *     bh_ids_ = ha->ids + i * k;
 
         switch (code_size) {
         case 8:

@@ -798,7 +798,7 @@ static void knn_inner_product_sse (const float * x,
         const float * y_ = y;
 
         float * __restrict simi = res->get_val(i);
-        long * __restrict idxi = res->get_ids (i);
+		int64_t * __restrict idxi = res->get_ids (i);
 
         minheap_heapify (k, simi, idxi);
 
@@ -830,7 +830,7 @@ static void knn_L2sqr_sse (
         const float * y_ = y;
         size_t j;
         float * __restrict simi = res->get_val(i);
-        long * __restrict idxi = res->get_ids (i);
+		int64_t * __restrict idxi = res->get_ids (i);
 
         maxheap_heapify (k, simi, idxi);
         for (j = 0; j < ny; j++) {
@@ -950,7 +950,7 @@ void knn_L2sqr_cublas(cublasHandle_t handle,const float * x,
 #pragma omp parallel for
             for (size_t i = i0; i < i1; i++) {
                 float * __restrict simi = res->get_val(i);
-                long * __restrict idxi = res->get_ids (i);
+				int64_t * __restrict idxi = res->get_ids (i);
                 const float *ip_line = ip_block.data() + (i - i0) * (j1 - j0);
 
                 for (size_t j = j0; j < j1; j++) {
@@ -1019,7 +1019,7 @@ static void knn_L2sqr_blas (const float * x,
 #pragma omp parallel for
             for (size_t i = i0; i < i1; i++) {
                 float * __restrict simi = res->get_val(i);
-                long * __restrict idxi = res->get_ids (i);
+                int64_t * __restrict idxi = res->get_ids (i);
                 const float *ip_line = ip_block + (i - i0) * (j1 - j0);
 
                 for (size_t j = j0; j < j1; j++) {
@@ -1119,12 +1119,12 @@ void knn_L2sqr_base_shift (
 void fvec_inner_products_by_idx (float * __restrict ip,
                                  const float * x,
                                  const float * y,
-                                 const long * __restrict ids, /* for y vecs */
+                                 const int64_t * __restrict ids, /* for y vecs */
                                  size_t d, size_t nx, size_t ny)
 {
 #pragma omp parallel for
     for (size_t j = 0; j < nx; j++) {
-        const long * __restrict idsj = ids + j * ny;
+        const int64_t * __restrict idsj = ids + j * ny;
         const float * xj = x + j * d;
         float * __restrict ipj = ip + j * ny;
         for (size_t i = 0; i < ny; i++) {
@@ -1140,12 +1140,12 @@ void fvec_inner_products_by_idx (float * __restrict ip,
 void fvec_L2sqr_by_idx (float * __restrict dis,
                         const float * x,
                         const float * y,
-                        const long * __restrict ids, /* ids of y vecs */
+                        const int64_t * __restrict ids, /* ids of y vecs */
                         size_t d, size_t nx, size_t ny)
 {
 #pragma omp parallel for
     for (size_t j = 0; j < nx; j++) {
-        const long * __restrict idsj = ids + j * ny;
+        const int64_t * __restrict idsj = ids + j * ny;
         const float * xj = x + j * d;
         float * __restrict disj = dis + j * ny;
         for (size_t i = 0; i < ny; i++) {
@@ -1176,7 +1176,7 @@ void knn_inner_products_by_idx (const float * x,
         const long * idsi = ids + i * ny;
         size_t j;
         float * __restrict simi = res->get_val(i);
-        long * __restrict idxi = res->get_ids (i);
+		int64_t * __restrict idxi = res->get_ids (i);
         minheap_heapify (k, simi, idxi);
 
         for (j = 0; j < ny; j++) {
@@ -1206,7 +1206,7 @@ void knn_L2sqr_by_idx (const float * x,
         const float * x_ = x + i * d;
         const long * __restrict idsi = ids + i * ny;
         float * __restrict simi = res->get_val(i);
-        long * __restrict idxi = res->get_ids (i);
+		int64_t * __restrict idxi = res->get_ids (i);
         maxheap_heapify (res->k, simi, idxi);
         for (size_t j = 0; j < ny; j++) {
             float disij = fvec_L2sqr (x_, y + d * idsi[j], d);
@@ -1512,7 +1512,7 @@ void pairwise_L2sqr (long d,
 /* For k-means, compute centroids given assignment of vectors to centroids */
 int km_update_centroids (const float * x,
                          float * centroids,
-                         long * assign,
+                         int64_t * assign,
                          size_t d, size_t k, size_t n,
                          size_t k_frozen)
 {
@@ -1533,7 +1533,7 @@ int km_update_centroids (const float * x,
         size_t nacc = 0;
 
         for (size_t i = 0; i < n; i++) {
-            long ci = assign[i];
+			int64_t ci = assign[i];
             assert (ci >= 0 && ci < k + k_frozen);
             ci -= k_frozen;
             if (ci >= c0 && ci < c1)  {
@@ -1689,11 +1689,11 @@ size_t ranklist_intersection_size (size_t k1, const long *v1,
                                    size_t k2, const long *v2_in)
 {
     if (k2 > k1) return ranklist_intersection_size (k2, v2_in, k1, v1);
-    long *v2 = new long [k2];
+    int64_t *v2 = new int64_t[k2];
     memcpy (v2, v2_in, sizeof (long) * k2);
     std::sort (v2, v2 + k2);
     { // de-dup v2
-        long prev = -1;
+        int64_t prev = -1;
         size_t wp = 0;
         for (size_t i = 0; i < k2; i++) {
             if (v2 [i] != prev) {
@@ -1702,14 +1702,14 @@ size_t ranklist_intersection_size (size_t k1, const long *v1,
         }
         k2 = wp;
     }
-    const long seen_flag = 1L << 60;
+    const int64_t seen_flag = ((int64_t)1) << 60;
     size_t count = 0;
     for (size_t i = 0; i < k1; i++) {
-        long q = v1 [i];
+		int64_t q = v1 [i];
         size_t i0 = 0, i1 = k2;
         while (i0 + 1 < i1) {
             size_t imed = (i1 + i0) / 2;
-            long piv = v2 [imed] & ~seen_flag;
+			int64_t piv = v2 [imed] & ~seen_flag;
             if (piv <= q) i0 = imed;
             else          i1 = imed;
         }

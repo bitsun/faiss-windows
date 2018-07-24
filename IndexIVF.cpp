@@ -123,7 +123,7 @@ InvertedLists::idx_t InvertedLists::get_single_id (
 }
 
 
-void InvertedLists::prefetch_lists (const long *, int) const
+void InvertedLists::prefetch_lists (const int64_t *, int) const
 {}
 
 const uint8_t * InvertedLists::get_single_code (
@@ -283,8 +283,8 @@ void IndexIVF::make_direct_map (bool new_maintain_direct_map)
 void IndexIVF::search (idx_t n, const float *x, idx_t k,
                          float *distances, idx_t *labels) const
 {
-    long * idx = new long [n * nprobe];
-    ScopeDeleter<long> del (idx);
+	int64_t * idx = new int64_t[n * nprobe];
+    ScopeDeleter<int64_t> del (idx);
     float * coarse_dis = new float [n * nprobe];
     ScopeDeleter<float> del2 (coarse_dis);
 
@@ -316,8 +316,8 @@ void IndexIVF::reconstruct_n (idx_t i0, idx_t ni, float* recons) const
         size_t list_size = invlists->list_size (list_no);
         const Index::idx_t * idlist = invlists->get_ids (list_no);
 
-        for (long offset = 0; offset < list_size; offset++) {
-            long id = idlist[offset];
+        for (size_t offset = 0; offset < list_size; offset++) {
+			idx_t id = idlist[offset];
             if (!(id >= i0 && id < i0 + ni)) {
               continue;
             }
@@ -333,8 +333,8 @@ void IndexIVF::search_and_reconstruct (idx_t n, const float *x, idx_t k,
                                        float *distances, idx_t *labels,
                                        float *recons) const
 {
-    long * idx = new long [n * nprobe];
-    ScopeDeleter<long> del (idx);
+    int64_t * idx = new int64_t[n * nprobe];
+    ScopeDeleter<int64_t> del (idx);
     float * coarse_dis = new float [n * nprobe];
     ScopeDeleter<float> del2 (coarse_dis);
 
@@ -381,16 +381,16 @@ void IndexIVF::reset ()
 }
 
 
-long IndexIVF::remove_ids (const IDSelector & sel)
+int64_t IndexIVF::remove_ids (const IDSelector & sel)
 {
     FAISS_THROW_IF_NOT_MSG (!maintain_direct_map,
                     "direct map remove not implemented");
 
-    std::vector<long> toremove(nlist);
+    std::vector<int64_t> toremove(nlist);
 
 #pragma omp parallel for
-    for (long i = 0; i < nlist; i++) {
-        long l0 = invlists->list_size (i), l = l0, j = 0;
+    for (size_t i = 0; i < nlist; i++) {
+        int64_t l0 = invlists->list_size (i), l = l0, j = 0;
         const idx_t *idsi = invlists->get_ids (i);
         while (j < l) {
             if (sel.is_member (idsi[j])) {
@@ -406,8 +406,8 @@ long IndexIVF::remove_ids (const IDSelector & sel)
         toremove[i] = l0 - l;
     }
     // this will not run well in parallel on ondisk because of possible shrinks
-    long nremove = 0;
-    for (long i = 0; i < nlist; i++) {
+	int64_t nremove = 0;
+    for (size_t i = 0; i < nlist; i++) {
         if (toremove[i] > 0) {
             nremove += toremove[i];
             invlists->resize(
@@ -573,7 +573,7 @@ void IndexIVF::copy_subset_to (IndexIVF & other, int subset_type,
             size_t next_accu_a2 = next_accu_n * a2 / ntotal;
             size_t i2 = next_accu_a2 - accu_a2;
 
-            for (long i = i1; i < i2; i++) {
+            for (size_t i = i1; i < i2; i++) {
                 oivf->add_entry (list_no,
                                  invlists->get_single_id (list_no, i),
                                  invlists->get_single_code (list_no, i));

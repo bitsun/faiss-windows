@@ -57,7 +57,7 @@ struct IndexFlat: Index {
     /// database vectors, size ntotal * d
     std::vector<float> xb;
 
-    explicit IndexFlat (idx_t d, MetricType metric = METRIC_INNER_PRODUCT);
+    explicit IndexFlat (int d, MetricType metric = METRIC_INNER_PRODUCT);
 
     void add(idx_t n, const float* x) override;
 
@@ -96,7 +96,7 @@ struct IndexFlat: Index {
     /** remove some ids. NB that Because of the structure of the
      * indexing structre, the semantics of this operation are
      * different from the usual ones: the new ids are shifted */
-    long remove_ids(const IDSelector& sel) override;
+	int64_t remove_ids(const IDSelector& sel) override;
 
     IndexFlat () {}
 };
@@ -104,13 +104,13 @@ struct IndexFlat: Index {
 
 
 struct IndexFlatIP:IndexFlat {
-    explicit IndexFlatIP (idx_t d): IndexFlat (d, METRIC_INNER_PRODUCT) {}
+    explicit IndexFlatIP (int d): IndexFlat (d, METRIC_INNER_PRODUCT) {}
     IndexFlatIP () {}
 };
 
 struct GPU_IndexFlatL2 :IndexFlat {
 	cublasHandle_t handle;
-	explicit GPU_IndexFlatL2 (idx_t d);
+	explicit GPU_IndexFlatL2 (int d);
     GPU_IndexFlatL2 ();
 	~GPU_IndexFlatL2();
 	void search(
@@ -136,7 +136,7 @@ struct GPU_IndexFlatFP16L2 : Index{
 	*/
 	std::vector<float> yL2norms;
 
-	explicit GPU_IndexFlatFP16L2 (idx_t d);
+	explicit GPU_IndexFlatFP16L2 (int d);
 	virtual ~GPU_IndexFlatFP16L2();
 	/**
 	add data into the index. note that that the data to be added are still stored in a single precision array
@@ -167,7 +167,7 @@ struct GPU_IndexFlatFP16L2 : Index{
 };
 
 struct IndexFlatL2:IndexFlat {
-    explicit IndexFlatL2 (idx_t d): IndexFlat (d, METRIC_L2) {}
+    explicit IndexFlatL2 (int d): IndexFlat (d, METRIC_L2) {}
     IndexFlatL2 () {}
 };
 
@@ -176,7 +176,7 @@ struct IndexFlatL2:IndexFlat {
 struct IndexFlatL2BaseShift: IndexFlatL2 {
     std::vector<float> shift;
 
-    IndexFlatL2BaseShift (idx_t d, size_t nshift, const float *shift);
+    IndexFlatL2BaseShift (int d, size_t nshift, const float *shift);
 
     void search(
         idx_t n,
