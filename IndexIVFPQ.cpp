@@ -145,14 +145,14 @@ void IndexIVFPQ::train_residual_o (idx_t n, const float *x, float *residuals_2)
 void IndexIVFPQ::encode (long key, const float * x, uint8_t * code) const
 {
     if (by_residual) {
-        float residual_vec[d];
-        quantizer->compute_residual (x, residual_vec, key);
-        pq.compute_code (residual_vec, code);
+        std::vector<float> residual_vec(d);
+        quantizer->compute_residual (x, residual_vec.data(), key);
+        pq.compute_code (residual_vec.data(), code);
     }
     else pq.compute_code (x, code);
 }
 
-void IndexIVFPQ::encode_multiple (size_t n, long *keys,
+void IndexIVFPQ::encode_multiple (size_t n, int64_t *keys,
                                   const float * x, uint8_t * xcodes,
                                   bool compute_keys) const
 {
@@ -171,7 +171,7 @@ void IndexIVFPQ::encode_multiple (size_t n, long *keys,
     }
 }
 
-void IndexIVFPQ::decode_multiple (size_t n, const long *keys,
+void IndexIVFPQ::decode_multiple (size_t n, const int64_t *keys,
                                   const uint8_t * xcodes, float * x) const
 {
     pq.decode (xcodes, x, n);
@@ -194,14 +194,14 @@ void IndexIVFPQ::decode_multiple (size_t n, const long *keys,
  * add                                                          */
 
 
-void IndexIVFPQ::add_with_ids (idx_t n, const float * x, const long *xids)
+void IndexIVFPQ::add_with_ids (idx_t n, const float * x, const int64_t *xids)
 {
     add_core_o (n, x, xids, nullptr);
 }
 
 
-void IndexIVFPQ::add_core_o (idx_t n, const float * x, const long *xids,
-                             float *residuals_2, const long *precomputed_idx)
+void IndexIVFPQ::add_core_o (idx_t n, const float * x, const int64_t *xids,
+                             float *residuals_2, const int64_t *precomputed_idx)
 {
 
     idx_t bs = 32768;
@@ -222,13 +222,13 @@ void IndexIVFPQ::add_core_o (idx_t n, const float * x, const long *xids,
 
     FAISS_THROW_IF_NOT (is_trained);
     double t0 = getmillisecs ();
-    const long * idx;
-    ScopeDeleter<long> del_idx;
+    const int64_t * idx;
+    ScopeDeleter<int64_t> del_idx;
 
     if (precomputed_idx) {
         idx = precomputed_idx;
     } else {
-        long * idx0 = new long [n];
+        int64_t * idx0 = new int64_t[n];
         del_idx.set (idx0);
         quantizer->assign (n, x, idx0);
         idx = idx0;
@@ -426,11 +426,15 @@ void IndexIVFPQ::precompute_table ()
 namespace {
 
 static uint64_t get_cycles () {
+#ifdef _MSC_VER
+	return __rdtsc();
+#else
     uint32_t high, low;
     asm volatile("rdtsc \n\t"
                  : "=a" (low),
                    "=d" (high));
     return ((uint64_t)high << 32) | (low);
+#endif
 }
 
 #define TIC t0 = get_cycles()
@@ -614,12 +618,12 @@ struct QueryTables {
                 dynamic_cast<const MultiIndexQuantizer *> (ivfpq.quantizer);
             FAISS_THROW_IF_NOT (miq);
             const ProductQuantizer &cpq = miq->pq;
-            int Mf = pq.M / cpq.M;
+            int Mf = (int)(pq.M / cpq.M);
 
             const float *qtab = sim_table_2; // query-specific table
             float *ltab = sim_table; // (output) list-specific table
 
-            long k = key;
+            int64_t k = key;
             for (int cm = 0; cm < cpq.M; cm++) {
                 // compute PQ index
                 int ki = k & ((uint64_t(1) << cpq.nbits) - 1);
@@ -673,9 +677,9 @@ struct QueryTables {
                 dynamic_cast<const MultiIndexQuantizer *> (ivfpq.quantizer);
             FAISS_THROW_IF_NOT (miq);
             const ProductQuantizer &cpq = miq->pq;
-            int Mf = pq.M / cpq.M;
+            int Mf = (int)(pq.M / cpq.M);
 
-            long k = key;
+            int64_t k = key;
             int m0 = 0;
             for (int cm = 0; cm < cpq.M; cm++) {
                 int ki = k & ((uint64_t(1) << cpq.nbits) - 1);
@@ -744,7 +748,7 @@ struct InvertedListScanner: QueryTables {
 
     /// version of the scan where we use precomputed tables
     void scan_list_with_table (
-             size_t k, float * heap_sim, long * heap_ids, bool store_pairs)
+             size_t k, float * heap_sim, int64_t * heap_ids, bool store_pairs)
     {
         float dis0 = precompute_list_tables ();
 
@@ -760,7 +764,7 @@ struct InvertedListScanner: QueryTables {
 
             if (dis < heap_sim[0]) {
                 maxheap_pop (k, heap_sim, heap_ids);
-                long id = store_pairs ? (key << 32 | j) : list_ids[j];
+                int64_t id = store_pairs ? (key << 32 | j) : list_ids[j];
                 maxheap_push (k, heap_sim, heap_ids, dis, id);
             }
         }
@@ -770,7 +774,7 @@ struct InvertedListScanner: QueryTables {
     /// tables are not precomputed, but pointers are provided to the
     /// relevant X_c|x_r tables
     void scan_list_with_pointer (
-             size_t k, float * heap_sim, long * heap_ids, bool store_pairs)
+             size_t k, float * heap_sim, int64_t * heap_ids, bool store_pairs)
     {
 
         float dis0 = precompute_list_table_pointers ();
@@ -788,7 +792,7 @@ struct InvertedListScanner: QueryTables {
 
             if (dis < heap_sim[0]) {
                 maxheap_pop (k, heap_sim, heap_ids);
-                long id = store_pairs ? (key << 32 | j) : list_ids[j];
+                int64_t id = store_pairs ? (key << 32 | j) : list_ids[j];
                 maxheap_push (k, heap_sim, heap_ids, dis, id);
             }
         }
@@ -797,7 +801,7 @@ struct InvertedListScanner: QueryTables {
 
     /// nothing is precomputed: access residuals on-the-fly
     void scan_on_the_fly_dist (
-             size_t k, float * heap_sim, long * heap_ids, bool store_pairs)
+             size_t k, float * heap_sim, int64_t * heap_ids, bool store_pairs)
     {
 
         if (by_residual && use_precomputed_table) {
@@ -835,7 +839,7 @@ struct InvertedListScanner: QueryTables {
 
             if (dis < heap_sim[0]) {
                 maxheap_pop (k, heap_sim, heap_ids);
-                long id = store_pairs ? (key << 32 | j) : list_ids[j];
+                int64_t id = store_pairs ? (key << 32 | j) : list_ids[j];
                 maxheap_push (k, heap_sim, heap_ids, dis, id);
             }
         }
@@ -851,12 +855,12 @@ struct InvertedListScanner: QueryTables {
 
     template <class HammingComputer>
     void scan_list_polysemous_hc (
-             size_t k, float * heap_sim, long * heap_ids, bool store_pairs)
+             size_t k, float * heap_sim, int64_t * heap_ids, bool store_pairs)
     {
         float dis0 = precompute_list_tables ();
         int ht = ivfpq.polysemous_ht;
 
-        int code_size = pq.code_size;
+        int code_size = (int)pq.code_size;
 
         HammingComputer hc (q_code.data(), code_size);
 
@@ -876,7 +880,7 @@ struct InvertedListScanner: QueryTables {
 
                 if (dis < heap_sim[0]) {
                     maxheap_pop (k, heap_sim, heap_ids);
-                    long id = store_pairs ? (key << 32 | j) : list_ids[j];
+                    int64_t id = store_pairs ? (key << 32 | j) : list_ids[j];
                     maxheap_push (k, heap_sim, heap_ids, dis, id);
                 }
             }
@@ -885,7 +889,7 @@ struct InvertedListScanner: QueryTables {
     }
 
     void scan_list_polysemous (
-             size_t k, float * heap_sim, long * heap_ids, bool store_pairs)
+             size_t k, float * heap_sim, int64_t * heap_ids, bool store_pairs)
     {
         switch (pq.code_size) {
 #define HANDLE_CODE_SIZE(cs)  \
@@ -940,7 +944,7 @@ void IndexIVFPQ::search_preassigned (idx_t nx, const float *qx, idx_t k,
 
 #pragma omp parallel
     {
-        InvertedListScanner<long> qt (*this);
+        InvertedListScanner<int64_t> qt (*this);
         size_t stats_nlist = 0;
         size_t stats_ncode = 0;
         uint64_t init_query_cycles = 0;
@@ -950,10 +954,10 @@ void IndexIVFPQ::search_preassigned (idx_t nx, const float *qx, idx_t k,
 #pragma omp  for
         for (size_t i = 0; i < nx; i++) {
             const float *qi = qx + i * d;
-            const long * keysi = keys + i * nprobe;
+            const int64_t * keysi = keys + i * nprobe;
             const float *coarse_dis_i = coarse_dis + i * nprobe;
             float * heap_sim = res.get_val (i);
-            long * heap_ids = res.get_ids (i);
+			int64_t * heap_ids = res.get_ids (i);
 
             uint64_t t0;
             TIC;
@@ -967,7 +971,7 @@ void IndexIVFPQ::search_preassigned (idx_t nx, const float *qx, idx_t k,
             size_t nscan = 0;
 
             for (size_t ik = 0; ik < nprobe; ik++) {
-                long key = keysi[ik];  /* select the list  */
+                int64_t key = keysi[ik];  /* select the list  */
                 if (key < 0) {
                     // not enough centroids for multiprobe
                     continue;
@@ -1133,12 +1137,12 @@ void IndexIVFPQR::train_residual (idx_t n, const float *x)
 }
 
 
-void IndexIVFPQR::add_with_ids (idx_t n, const float *x, const long *xids) {
+void IndexIVFPQR::add_with_ids (idx_t n, const float *x, const int64_t *xids) {
     add_core (n, x, xids, nullptr);
 }
 
-void IndexIVFPQR::add_core (idx_t n, const float *x, const long *xids,
-                                const long *precomputed_idx) {
+void IndexIVFPQR::add_core (idx_t n, const float *x, const int64_t *xids,
+                                const int64_t *precomputed_idx) {
 
     float * residual_2 = new float [n * d];
     ScopeDeleter <float> del(residual_2);
@@ -1192,13 +1196,13 @@ void IndexIVFPQR::search_preassigned (idx_t n, const float *x, idx_t k,
 #pragma omp for
         for (idx_t i = 0; i < n; i++) {
             const float *xq = x + i * d;
-            const long * shortlist = coarse_labels + k_coarse * i;
+            const int64_t * shortlist = coarse_labels + k_coarse * i;
             float * heap_sim = distances + k * i;
-            long * heap_ids = labels + k * i;
+			int64_t * heap_ids = labels + k * i;
             maxheap_heapify (k, heap_sim, heap_ids);
 
             for (int j = 0; j < k_coarse; j++) {
-                long sl = shortlist[j];
+                int64_t sl = shortlist[j];
 
                 if (sl == -1) continue;
 
@@ -1229,7 +1233,7 @@ void IndexIVFPQR::search_preassigned (idx_t n, const float *x, idx_t k,
 
                 if (dis < heap_sim[0]) {
                     maxheap_pop (k, heap_sim, heap_ids);
-                    long id_or_pair = store_pairs ? sl : id;
+                    int64_t id_or_pair = store_pairs ? sl : id;
                     maxheap_push (k, heap_sim, heap_ids, dis, id_or_pair);
                 }
                 n_refine ++;
@@ -1269,7 +1273,7 @@ void IndexIVFPQR::merge_from (IndexIVF &other_in, idx_t add_id)
     other->refine_codes.clear();
 }
 
-long IndexIVFPQR::remove_ids(const IDSelector& /*sel*/) {
+int64_t IndexIVFPQR::remove_ids(const IDSelector& /*sel*/) {
   FAISS_THROW_MSG("not implemented");
   return 0;
 }
@@ -1288,7 +1292,7 @@ Index2Layer::Index2Layer (Index * quantizer, size_t nlist,
 {
     is_trained = false;
     for (int nbyte = 0; nbyte < 7; nbyte++) {
-        if ((1L << (8 * nbyte)) >= nlist) {
+        if ((((uint64_t)1) << (8 * nbyte)) >= nlist) {
             code_size_1 = nbyte;
             break;
         }
@@ -1404,14 +1408,14 @@ void Index2Layer::search(
 
 void Index2Layer::reconstruct_n(idx_t i0, idx_t ni, float* recons) const
 {
-    float recons1[d];
+    std::vector<float> recons1(d);
     FAISS_THROW_IF_NOT (i0 >= 0 && i0 + ni <= ntotal);
     const uint8_t *rp = &codes[i0 * code_size];
 
     for (idx_t i = 0; i < ni; i++) {
         idx_t key = 0;
         memcpy (&key, rp, code_size_1);
-        q1.quantizer->reconstruct (key, recons1);
+        q1.quantizer->reconstruct (key, recons1.data());
         rp += code_size_1;
         pq.decode (rp, recons);
         for (idx_t j = 0; j < d; j++) {

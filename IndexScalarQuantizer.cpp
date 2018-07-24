@@ -924,8 +924,8 @@ IndexIVFScalarQuantizer::IndexIVFScalarQuantizer ():
 
 void IndexIVFScalarQuantizer::train_residual (idx_t n, const float *x)
 {
-    long * idx = new long [n];
-    ScopeDeleter<long> del (idx);
+    int64_t * idx = new int64_t[n];
+    ScopeDeleter<int64_t> del (idx);
     quantizer->assign (n, x, idx);
     float *residuals = new float [n * d];
     ScopeDeleter<float> del2 (residuals);
@@ -941,11 +941,11 @@ void IndexIVFScalarQuantizer::train_residual (idx_t n, const float *x)
 
 
 void IndexIVFScalarQuantizer::add_with_ids
-       (idx_t n, const float * x, const long *xids)
+       (idx_t n, const float * x, const int64_t *xids)
 {
     FAISS_THROW_IF_NOT (is_trained);
-    long * idx = new long [n];
-    ScopeDeleter<long> del (idx);
+	int64_t * idx = new int64_t[n];
+    ScopeDeleter<int64_t> del (idx);
     quantizer->assign (n, x, idx);
     size_t nadd = 0;
     Quantizer *squant = select_quantizer (sq);
@@ -960,9 +960,9 @@ void IndexIVFScalarQuantizer::add_with_ids
 
         // each thread takes care of a subset of lists
         for (size_t i = 0; i < n; i++) {
-            long list_no = idx [i];
+			int64_t list_no = idx [i];
             if (list_no >= 0 && list_no % nt == rank) {
-                long id = xids ? xids[i] : ntotal + i;
+                int64_t id = xids ? xids[i] : ntotal + i;
 
                 quantizer->compute_residual (
                       x + i * d, residual.data(), list_no);
@@ -1013,7 +1013,7 @@ void search_with_probes_ip (const IndexIVFScalarQuantizer & index,
 
             if (accu > simi [0]) {
                 minheap_pop (k, simi, idxi);
-                long id = store_pairs ? (list_no << 32 | j) : ids[j];
+                int64_t id = store_pairs ? (list_no << 32 | j) : ids[j];
                 minheap_push (k, simi, idxi, accu, id);
             }
             codes += code_size;
@@ -1057,7 +1057,7 @@ void search_with_probes_L2 (const IndexIVFScalarQuantizer & index,
 
             if (dis < simi [0]) {
                 maxheap_pop (k, simi, idxi);
-                long id = store_pairs ? (list_no << 32 | j) : ids[j];
+                int64_t id = store_pairs ? (list_no << 32 | j) : ids[j];
                 maxheap_push (k, simi, idxi, dis, id);
             }
             codes += code_size;

@@ -268,7 +268,7 @@ struct IndexPreTransform: Index {
 
     void add(idx_t n, const float* x) override;
 
-    void add_with_ids(idx_t n, const float* x, const long* xids) override;
+    void add_with_ids(idx_t n, const float* x, const int64_t* xids) override;
 
     void reset() override;
 

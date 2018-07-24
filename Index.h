@@ -104,7 +104,7 @@ struct Index {
      *
      * @param xids if non-null, ids to store for the vectors (size n)
      */
-    virtual void add_with_ids (idx_t n, const float * x, const long *xids);
+    virtual void add_with_ids (idx_t n, const float * x, const int64_t *xids);
 
     /** query n vectors of dimension d to the index.
      *

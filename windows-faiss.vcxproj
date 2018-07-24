@@ -153,9 +153,13 @@
     <ClInclude Include="Heap.h" />
     <ClInclude Include="Index.h" />
     <ClInclude Include="IndexFlat.h" />
+    <ClInclude Include="IndexHNSW.h" />
     <ClInclude Include="IndexIVF.h" />
     <ClInclude Include="IndexIVFFlat.h" />
+    <ClInclude Include="IndexIVFPQ.h" />
+    <ClInclude Include="IndexLSH.h" />
     <ClInclude Include="IndexPQ.h" />
+    <ClInclude Include="IndexScalarQuantizer.h" />
     <ClInclude Include="PolysemousTraining.h" />
     <ClInclude Include="ProductQuantizer.h" />
     <ClInclude Include="utils.h" />
@@ -169,9 +173,13 @@
     <ClCompile Include="Heap.cpp" />
     <ClCompile Include="Index.cpp" />
     <ClCompile Include="IndexFlat.cpp" />
+    <ClCompile Include="IndexHNSW.cpp" />
     <ClCompile Include="IndexIVF.cpp" />
     <ClCompile Include="IndexIVFFlat.cpp" />
+    <ClCompile Include="IndexIVFPQ.cpp" />
+    <ClCompile Include="IndexLSH.cpp" />
     <ClCompile Include="IndexPQ.cpp" />
+    <ClCompile Include="IndexScalarQuantizer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PolysemousTraining.cpp" />
     <ClCompile Include="ProductQuantizer.cpp" />

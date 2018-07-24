@@ -21,7 +21,10 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef _MSC_VER
+#else
 #include <unistd.h>
+#endif
 #include <stdint.h>
 
 #include <immintrin.h>
@@ -1167,9 +1170,9 @@ void IndexHNSW::init_level_0_from_knngraph(
 #pragma omp parallel for
     for (idx_t i = 0; i < ntotal; i++) {
         DistanceComputer *qdis = get_distance_computer();
-        float vec[d];
-        storage->reconstruct(i, vec);
-        qdis->set_query(vec);
+		std::vector<float> vec(d);
+        storage->reconstruct(i, vec.data());
+        qdis->set_query(vec.data());
 
         std::priority_queue<NodeDistFarther> initial_list;
 
@@ -1212,14 +1215,14 @@ void IndexHNSW::init_level_0_from_entry_points(
 
         DistanceComputer *dis = get_distance_computer();
         ScopeDeleter1<DistanceComputer> del(dis);
-        float vec[storage->d];
+        std::vector<float> vec(storage->d);
 
 #pragma omp  for schedule(dynamic)
         for (int i = 0; i < n; i++) {
             storage_idx_t pt_id = points[i];
             storage_idx_t nearest = nearests[i];
-            storage->reconstruct (pt_id, vec);
-            dis->set_query (vec);
+            storage->reconstruct (pt_id, vec.data());
+            dis->set_query (vec.data());
 
             add_links_starting_from(hnsw, *dis, pt_id, nearest, (*dis)(nearest),
                                     0, locks.data(), vt);
@@ -1440,7 +1443,7 @@ void ReconstructFromNeighbors::reconstruct(storage_idx_t i, float *x, float *tmp
                 x[l] += w * tmp[l];
         }
     } else {
-        const float *betas[nsq];
+        std::vector<const float *> betas(nsq);
         {
             const float *b = codebook.data();
             const uint8_t *c = &codes[i * code_size];
@@ -1884,9 +1887,13 @@ struct DistanceXPQ4: Distance2Level {
 
         for (int m = 0; m < M; m++) {
             __m128 qi = _mm_loadu_ps(qa);
+#ifdef _MSC_VER
+			throw std::exception("not implemented");
+#else
             __m128 recons = l1_t[m] + pq_l2_t[*code++];
             __m128 diff = qi - recons;
             accu += diff * diff;
+#endif
             pq_l2_t += 256;
             qa += 4;
         }
@@ -1935,9 +1942,13 @@ struct Distance2xXPQ4: Distance2Level {
 
             for (int m = 0; m < M_2; m++) {
                 __m128 qi = _mm_loadu_ps(qa);
+#ifdef _MSC_VER
+				throw std::exception("not implemented");
+#else
                 __m128 recons = pq_l1[m] + pq_l2_t[*code++];
                 __m128 diff = qi - recons;
                 accu += diff * diff;
+#endif
                 pq_l2_t += 256;
                 qa += 4;
             }
@@ -2081,8 +2092,8 @@ void IndexHNSW2Level::search (idx_t n, const float *x, idx_t k,
 
         int nprobe = index_ivfpq->nprobe;
 
-        long * coarse_assign = new long [n * nprobe];
-        ScopeDeleter<long> del (coarse_assign);
+        int64_t * coarse_assign = new int64_t[n * nprobe];
+        ScopeDeleter<int64_t> del (coarse_assign);
         float * coarse_dis = new float [n * nprobe];
         ScopeDeleter<float> del2 (coarse_dis);
 

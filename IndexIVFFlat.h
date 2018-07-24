@@ -29,11 +29,11 @@ struct IndexIVFFlat: IndexIVF {
             MetricType = METRIC_L2);
 
     /// same as add_with_ids, with precomputed coarse quantizer
-    virtual void add_core (idx_t n, const float * x, const long *xids,
+    virtual void add_core (idx_t n, const float * x, const int64_t *xids,
                    const int64_t *precomputed_idx);
 
     /// implemented for all IndexIVF* classes
-    void add_with_ids(idx_t n, const float* x, const long* xids) override;
+    void add_with_ids(idx_t n, const float* x, const int64_t* xids) override;
 
     void search_preassigned (idx_t n, const float *x, idx_t k,
                              const idx_t *assign,
