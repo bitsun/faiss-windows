@@ -9,8 +9,8 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include <gtest/gtest.h>
-
+#include <boost/test/unit_test.hpp>
+#include "test-util.h"
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/utils.h>
@@ -35,7 +35,7 @@ double eval_codec_error (long ncentroids, long m, const std::vector<float> &v)
 
     // encode and decode to compute reconstruction error
 
-    std::vector<long> keys (nb);
+    std::vector<int64_t> keys (nb);
     std::vector<uint8_t> codes (nb * m);
     index.encode_multiple (nb, keys.data(), v.data(), codes.data(), true);
 
@@ -48,20 +48,18 @@ double eval_codec_error (long ncentroids, long m, const std::vector<float> &v)
 }  // namespace
 
 
-TEST(IVFPQ, codec) {
+BOOST_AUTO_TEST_CASE(IVFPQ_codec) {
 
     std::vector <float> database (nb * d);
-    for (size_t i = 0; i < nb * d; i++) {
-        database[i] = drand48();
-    }
+	generate_float_vector(d, database.data(), nb, 0);
 
     double err0 = eval_codec_error(16, 8, database);
 
     // should be more accurate as there are more coarse centroids
     double err1 = eval_codec_error(128, 8, database);
-    EXPECT_GT(err0, err1);
+    BOOST_CHECK(err0>err1);
 
     // should be more accurate as there are more PQ codes
     double err2 = eval_codec_error(16, 16, database);
-    EXPECT_GT(err0, err2);
+    BOOST_CHECK(err0>err2);
 }
