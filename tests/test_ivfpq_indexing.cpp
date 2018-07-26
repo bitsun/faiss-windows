@@ -11,13 +11,14 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include <gtest/gtest.h>
+#include <boost/test/unit_test.hpp>
+#include "test-util.h"
 
 #include <faiss/IndexIVFPQ.h>
 #include <faiss/IndexFlat.h>
 #include <faiss/index_io.h>
 
-TEST(IVFPQ, accuracy) {
+BOOST_AUTO_TEST_CASE(IVFPQ_index) {
 
     // dimension of the vectors to index
     int d = 64;
@@ -27,7 +28,7 @@ TEST(IVFPQ, accuracy) {
 
     // make a set of nt training vectors in the unit cube
     // (could be the database)
-    size_t nt = 1500;
+    size_t nt = 10000;
 
     // make the index object and train it
     faiss::IndexFlatL2 coarse_quantizer (d);
@@ -41,14 +42,13 @@ TEST(IVFPQ, accuracy) {
     // index that gives the ground-truth
     faiss::IndexFlatL2 index_gt (d);
 
-    srand48 (35);
+    //srand48 (35);
+	int nSeed = 35;
 
     { // training
 
         std::vector <float> trainvecs (nt * d);
-        for (size_t i = 0; i < nt * d; i++) {
-            trainvecs[i] = drand48();
-        }
+		generate_float_vector(d, trainvecs.data(), nt,nSeed);
         index.verbose = true;
         index.train (nt, trainvecs.data());
     }
@@ -56,9 +56,7 @@ TEST(IVFPQ, accuracy) {
     { // populating the database
 
         std::vector <float> database (nb * d);
-        for (size_t i = 0; i < nb * d; i++) {
-            database[i] = drand48();
-        }
+		generate_float_vector(d, database.data(), nb, nSeed+1);
 
         index.add (nb, database.data());
         index_gt.add (nb, database.data());
@@ -70,9 +68,7 @@ TEST(IVFPQ, accuracy) {
     { // searching the database
 
         std::vector <float> queries (nq * d);
-        for (size_t i = 0; i < nq * d; i++) {
-            queries[i] = drand48();
-        }
+		generate_float_vector(d, queries.data(), nq, nSeed+2);
 
         std::vector<faiss::Index::idx_t> gt_nns (nq);
         std::vector<float>               gt_dis (nq);
@@ -94,7 +90,8 @@ TEST(IVFPQ, accuracy) {
                 if (nns[q * k + i] == gt_nns[q])
                     n_ok++;
         }
-        EXPECT_GT(n_ok, nq * 0.4);
+		BOOST_TEST_MESSAGE("number of ok " << n_ok);
+        BOOST_CHECK(n_ok>nq * 0.4);
     }
 
 }

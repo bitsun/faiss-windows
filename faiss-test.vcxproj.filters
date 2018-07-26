@@ -5,8 +5,12 @@
     <ClCompile Include="tests\test-util.cpp" />
     <ClCompile Include="tests\test-flatindex.cpp" />
     <ClCompile Include="tests\main.cpp" />
+    <ClCompile Include="tests\test_ivfpq_indexing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="tests\test-util.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="tests\readme.txt" />
   </ItemGroup>
 </Project>
