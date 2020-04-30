@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cinttypes>
 
 #include "utils.h"
 #include "FaissAssert.h"
@@ -66,8 +67,8 @@ static double imbalance_factor (int n, int k, int64_t *assign) {
 
 void Clustering::train (idx_t nx, const float *x_in, Index & index) {
     FAISS_THROW_IF_NOT_FMT (nx >= k,
-             "Number of training points (%ld) should be at least "
-             "as large as number of clusters (%ld)", nx, k);
+             "Number of training points (%" PRId64 ") should be at least "
+             "as large as number of clusters (%zd)", nx, k);
 
     double t0 = getmillisecs();
 
@@ -83,7 +84,7 @@ void Clustering::train (idx_t nx, const float *x_in, Index & index) {
 
     if (nx > k * max_points_per_centroid) {
         if (verbose)
-            printf("Sampling a subset of %ld / %ld for training\n",
+            printf("Sampling a subset of %zd / %" PRId64 " for training\n",
                    k * max_points_per_centroid, nx);
         std::vector<int> perm (nx);
         rand_perm (perm.data (), nx, seed);
@@ -95,15 +96,15 @@ void Clustering::train (idx_t nx, const float *x_in, Index & index) {
         del1.set (x);
     } else if (nx < k * min_points_per_centroid) {
         fprintf (stderr,
-                 "WARNING clustering %ld points to %ld centroids: "
-                 "please provide at least %ld training points\n",
+                 "WARNING clustering %" PRId64 " points to %zd centroids: "
+                 "please provide at least %" PRId64 " training points\n",
                  nx, k, idx_t(k) * min_points_per_centroid);
     }
 
 
     if (nx == k) {
         if (verbose) {
-            printf("Number of training points (%ld) same as number of "
+            printf("Number of training points (%" PRId64 ") same as number of "
                    "clusters, just copying\n", nx);
         }
         // this is a corner case, just copy training set to clusters
@@ -116,7 +117,7 @@ void Clustering::train (idx_t nx, const float *x_in, Index & index) {
 
 
     if (verbose)
-        printf("Clustering %d points in %ldD to %ld clusters, "
+        printf("Clustering %d points in %" PRId64 "D to %zd clusters, "
                "redo %d times, %d iterations\n",
                int(nx), d, k, nredo, niter);
 
@@ -165,7 +166,7 @@ void Clustering::train (idx_t nx, const float *x_in, Index & index) {
         std::vector<int> perm (nx);
 
         rand_perm (perm.data(), nx, seed + 1 + redo * 15486557L);
-        for (int i = n_input_centroids; i < k ; i++)
+        for (size_t i = n_input_centroids; i < k ; i++)
             memcpy (&centroids[i * d], x + perm[i] * d,
                     d * sizeof (float));
 
@@ -202,7 +203,7 @@ void Clustering::train (idx_t nx, const float *x_in, Index & index) {
                         "objective=%g imbalance=%.3f nsplit=%d       \r",
                         i, (getmillisecs() - t0) / 1000.0,
                         t_search_tot / 1000,
-                        err, imbalance_factor (nx, k, assign),
+                        err, imbalance_factor ((int)nx, (int)k, assign),
                         nsplit);
                 fflush (stdout);
             }
@@ -242,10 +243,10 @@ float kmeans_clustering (size_t d, size_t n, size_t k,
                          const float *x,
                          float *centroids)
 {
-    Clustering clus (d, k);
+    Clustering clus ((int)d, (int)k);
     clus.verbose = d * n * k > (1L << 30);
     // display logs if > 1Gflop per iteration
-    IndexFlatL2 index (d);
+    IndexFlatL2 index ((int)d);
     clus.train (n, x, index);
     memcpy(centroids, clus.centroids.data(), sizeof(*centroids) * d * k);
     return clus.obj.back();

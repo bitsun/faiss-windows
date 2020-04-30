@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "blas-test", "blas-test\blas
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "faiss-test", "faiss-test.vcxproj", "{70DC71C5-0CBC-46AD-8FAC-91D36F74954E}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "faisstest_anthony", "..\faisstest_anthony\faisstest_anthony.vcxproj", "{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -43,6 +45,14 @@ Global
 		{70DC71C5-0CBC-46AD-8FAC-91D36F74954E}.Release|x64.Build.0 = Release|x64
 		{70DC71C5-0CBC-46AD-8FAC-91D36F74954E}.Release|x86.ActiveCfg = Release|Win32
 		{70DC71C5-0CBC-46AD-8FAC-91D36F74954E}.Release|x86.Build.0 = Release|Win32
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Debug|x64.ActiveCfg = Debug|x64
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Debug|x64.Build.0 = Debug|x64
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Debug|x86.ActiveCfg = Debug|Win32
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Debug|x86.Build.0 = Debug|Win32
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Release|x64.ActiveCfg = Release|x64
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Release|x64.Build.0 = Release|x64
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Release|x86.ActiveCfg = Release|Win32
+		{08DBAAB4-B6FB-4B0D-A1C5-555C24C6707C}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
