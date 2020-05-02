@@ -11,7 +11,7 @@ namespace FaissManagedUnitTest
     public class FaissTest 
     {
 
-        private void DumpArray(float[] dumpMe, int rows, int cols, string name="")
+        private void DumpArray<T>(T[] dumpMe, int rows, int cols, string name="")
         {
             if(!string.IsNullOrWhiteSpace(name))
             {
@@ -32,9 +32,12 @@ namespace FaissManagedUnitTest
         [TestMethod]
         public void IndexFlatL2Test()
         {
+            // Dimension of vectors (# cols)
             int d = 3;
-            int v = 2;
-            int k = 2;
+            // Num vectors
+            int v = 5;
+            // k-best to search
+            int k = 3;
             var idx = new IndexFlatL2(d);
             float[] addMe = new float[d * v];
             for(int i=0; i < v; ++i)
@@ -49,7 +52,16 @@ namespace FaissManagedUnitTest
             float[] dist = new float[v * k];
             Int64[] labels = new long[v * k];
             idx.Search(v, addMe, k, dist, labels);
+            DumpArray(labels, v, k, "labels");
             DumpArray(dist, v, k, "distances");
+
+            // We should always be our own one-best
+            for(int i=0; i < v; ++i)
+            {
+                Assert.IsTrue(dist[i * k] == 0.0f);
+                Assert.IsTrue(dist[i * k + 1] > 1.0f);
+                Assert.IsTrue(labels[i * k] == i);
+            }
             
             Assert.IsTrue(1 == 1);
         }

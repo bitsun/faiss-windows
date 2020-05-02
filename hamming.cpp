@@ -355,7 +355,7 @@ void fvec2bitvec (const float * x, uint8_t * b, size_t d)
     for (int i = 0; i < d; i += 8) {
         uint8_t w = 0;
         uint8_t mask = 1;
-        int nj = i + 8 <= d ? 8 : d - i;
+        int nj = i + 8 <= d ? 8 : (int)d - i;
         for (int j = 0; j < nj; j++) {
             if (x[i + j] >= 0)
                 w |= mask;
@@ -372,7 +372,7 @@ void fvec2bitvec (const float * x, uint8_t * b, size_t d)
    Ensure that the ouptut b is byte-aligned (pad with 0s). */
 void fvecs2bitvecs (const float * x, uint8_t * b, size_t d, size_t n)
 {
-    const long ncodes = ((d + 7) / 8);
+    const size_t ncodes = ((d + 7) / 8);
 #pragma omp parallel for
     for (size_t i = 0; i < n; i++)
         fvec2bitvec (x + i * d, b + i * ncodes, d);
@@ -467,7 +467,7 @@ void hammings_knn_core (
         break;
     default:
         hammings_knn_hc<faiss::HammingComputerM8>
-            (ncodes, ha, a, b, nb, false, true);
+            ((int)ncodes, ha, a, b, nb, false, true);
     }
 }
 
@@ -500,10 +500,10 @@ void hammings_knn (
     default:
         if(ncodes % 8 == 0) {
             hammings_knn_hc<faiss::HammingComputerM8>
-                (ncodes, ha, a, b, nb, order, true);
+                ((int)ncodes, ha, a, b, nb, order, true);
         } else {
             hammings_knn_hc<faiss::HammingComputerDefault>
-                (ncodes, ha, a, b, nb, order, true);
+                ((int)ncodes, ha, a, b, nb, order, true);
 
         }
     }

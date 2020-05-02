@@ -33,7 +33,7 @@ namespace Faiss {
             pin_ptr<float> pinnedX = &x[0];
             pin_ptr<float> pinnedDist = &distances[0];
             pin_ptr<int64_t> pinnedLabels = &labels[0];
-            m_pWrapper->search(k, pinnedX, (int64_t)k, pinnedDist, pinnedLabels);
+            m_pWrapper->search(n, pinnedX, (int64_t)k, pinnedDist, pinnedLabels);
         }
         
 

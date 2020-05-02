@@ -202,6 +202,10 @@ struct HammingComputer16 {
 
 };
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable: 4244) //conversion from uint64 -> uint32 on a2
+#endif
 // when applied to an array, 1/2 of the 64-bit accesses are unaligned.
 // This incurs a penalty of ~10% wrt. fully aligned accesses.
 struct HammingComputer20 {
@@ -220,6 +224,10 @@ struct HammingComputer20 {
             popcount64 (*(uint32_t*)(b + 2) ^ a2);
     }
 };
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 struct HammingComputer32 {
     uint64_t a0, a1, a2, a3;
