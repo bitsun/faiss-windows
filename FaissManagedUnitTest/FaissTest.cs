@@ -55,11 +55,13 @@ namespace FaissManagedUnitTest
             DumpArray(labels, v, k, "labels");
             DumpArray(dist, v, k, "distances");
 
-            // We should always be our own one-best
             for(int i=0; i < v; ++i)
             {
+                // Distance from self should be zero
                 Assert.IsTrue(dist[i * k] == 0.0f);
-                Assert.IsTrue(dist[i * k + 1] > 1.0f);
+                // Distance to anyone else should be > 0
+                Assert.IsTrue(dist[(i * k) + 1] > 0.0f);
+                // We should always be our own one-best
                 Assert.IsTrue(labels[i * k] == i);
             }
             
