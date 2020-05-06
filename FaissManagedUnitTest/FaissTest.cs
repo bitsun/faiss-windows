@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Faiss;
 using System.Text;
+using System.Diagnostics;
 
 namespace FaissManagedUnitTest
 {
@@ -28,7 +29,29 @@ namespace FaissManagedUnitTest
                 TestContext.WriteLine(sb.ToString());
             }
         }
+
         public TestContext TestContext { get; set; }
+
+        static bool FloatClose(float f1, float f2, float tol=0.001f)
+        {
+            return Math.Abs(f1 - f2) < tol;
+        }
+
+        [TestMethod]
+        public void RenormTest()
+        {
+            float[] renormMe = new[] {1.0f, 2.0f, 3.0f, 4.0f};
+            float norm1 = (float) Math.Sqrt(1.0 + 4.0);
+            float norm2 = (float)Math.Sqrt(9.0 + 16.0);
+            Utilities.RenormL2(2, 2, renormMe);
+
+
+            Assert.IsTrue(FloatClose(renormMe[0], 1.0f / norm1));
+            Assert.IsTrue(FloatClose(renormMe[1], 2.0f / norm1));
+            Assert.IsTrue(FloatClose(renormMe[2], 3.0f / norm2));
+            Assert.IsTrue(FloatClose(renormMe[3], 4.0f / norm2));
+        }
+
         [TestMethod]
         public void IndexFlatL2Test()
         {

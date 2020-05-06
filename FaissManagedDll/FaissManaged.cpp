@@ -2,6 +2,7 @@
 #include <Windows.h>
 #include <memory>
 #include "IndexFlat.h"
+#include "Utils.h"
 #include <vcclr.h>
 #include <msclr/marshal_cppstd.h>
 #using <System.dll>
@@ -15,6 +16,18 @@ using namespace msclr::interop;
 // FaissSharp to support the windows dll 
 
 namespace Faiss {
+
+    public ref class Utilities
+    {
+
+    public:
+        static void RenormL2(int dim, int n, array<float>^ renormMe) 
+        {
+            pin_ptr<float> pinnedArray = &renormMe[0];
+            faiss::fvec_renorm_L2(dim, n, pinnedArray);
+        }
+    };
+
     public ref class IndexFlatL2
     {
     public:
